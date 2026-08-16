@@ -1398,7 +1398,10 @@
     document.getElementById('md-google-loading').style.display = 'block';
     const { error } = await sb.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: 'https://eclectic-kulfi-f2445a.netlify.app' }
+      options: {
+        redirectTo: 'https://eclectic-kulfi-f2445a.netlify.app',
+        queryParams: { prompt: 'select_account' }
+      }
     });
     if(error){
       document.getElementById('md-google-loading').style.display = 'none';
