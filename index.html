@@ -1328,6 +1328,7 @@
   let mdPinFailCount = 0;
 
   function enterMDConsole(connectedEmail){
+    loginView.style.display = 'none';
     appView.style.display = 'block';
     animateCounters();
     renderProjectGrid();
@@ -1412,10 +1413,12 @@
     // the auth-state listener below when the page reloads.
   });
 
-  // Runs once, on every page load, to catch a return trip from Google OAuth.
-  sb.auth.onAuthStateChange(async (event, session) => {
+  // Handles the moment we detect a real signed-in session with intent=md,
+  // regardless of exactly which Supabase event name reported it (the event
+  // name Supabase uses here can vary depending on load timing).
+  async function tryClaimMD(session){
     const intent = sessionStorage.getItem('sc_login_intent');
-    if(event !== 'SIGNED_IN' || intent !== 'md' || !session) return;
+    if(intent !== 'md' || !session) return;
 
     document.getElementById('md-google-loading').style.display = 'block';
     const { data: isMD, error } = await sb.rpc('claim_md_role');
@@ -1432,7 +1435,20 @@
     }
     document.getElementById('md-google-card').style.display = 'none';
     enterMDConsole(session.user.email);
+  }
+
+  // Catch the redirect back from Google, however Supabase reports it.
+  sb.auth.onAuthStateChange((event, session) => {
+    if(event === 'SIGNED_IN' || event === 'INITIAL_SESSION') tryClaimMD(session);
   });
+
+  // Also check immediately on load, in case the event above already fired
+  // (e.g. Supabase parsed the redirect URL) before this listener attached.
+  (async function checkExistingSessionOnLoad(){
+    if(sessionStorage.getItem('sc_login_intent') !== 'md') return;
+    const { data: { session } } = await sb.auth.getSession();
+    if(session) tryClaimMD(session);
+  })();
 
   document.getElementById('logout-btn').addEventListener('click', async function(){
     await sb.auth.signOut();
