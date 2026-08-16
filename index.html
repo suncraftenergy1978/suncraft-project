@@ -1,0 +1,2439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SunCraft Project — MD Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy-deep:#0a2a43;
+    --navy-panel:#0f3454;
+    --navy-panel-2:#123c60;
+    --navy-line:#1c4a70;
+    --sky:#46b8f0;
+    --sky-pale:#bfe6fb;
+    --yellow:#ffc93c;
+    --amber:#e6a817;
+    --ivory:#fff8e6;
+    --text-hi:#eef6fc;
+    --text-lo:#8fb3cc;
+    --red:#ff5364;
+    --orange:#ff9142;
+    --green:#22a06b;
+    --font-display:'Space Grotesk',sans-serif;
+    --font-body:'Inter',sans-serif;
+    --font-mono:'JetBrains Mono',monospace;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    font-family:var(--font-body);
+    background:var(--navy-deep);
+    color:var(--text-hi);
+    overflow-x:hidden;
+  }
+  ::selection{background:var(--yellow); color:var(--navy-deep);}
+  ::-webkit-scrollbar{width:10px; height:10px;}
+  ::-webkit-scrollbar-track{background:var(--navy-deep);}
+  ::-webkit-scrollbar-thumb{background:var(--navy-line); border-radius:6px;}
+  a{color:var(--sky);}
+  button{font-family:var(--font-body); cursor:pointer;}
+  :focus-visible{outline:2px solid var(--yellow); outline-offset:2px;}
+
+  /* ---------- LOGIN VIEW ---------- */
+  #login-view{
+    position:relative; min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background:
+      radial-gradient(ellipse 900px 500px at 82% 8%, rgba(255,201,60,0.20), transparent 60%),
+      linear-gradient(180deg, #061a2b 0%, #0a2a43 55%, #0d3355 100%);
+    padding:24px; overflow:hidden;
+  }
+  #solar-bg{position:absolute; inset:0; width:100%; height:100%; opacity:0.16; pointer-events:none;}
+  #solar-bg .glint{ animation:glint-sweep 7s ease-in-out infinite; }
+  @keyframes glint-sweep{
+    0%{ transform:translateX(-40%); opacity:0; }
+    45%{ opacity:.55; }
+    55%{ opacity:.55; }
+    100%{ transform:translateX(40%); opacity:0; }
+  }
+  .login-card{
+    position:relative; z-index:2; width:100%; max-width:420px;
+    background:rgba(10,42,67,0.62);
+    border:1px solid rgba(191,230,251,0.14);
+    border-radius:20px;
+    padding:38px 34px 32px;
+    backdrop-filter:blur(18px) saturate(140%);
+    -webkit-backdrop-filter:blur(18px) saturate(140%);
+    box-shadow:0 30px 80px -20px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,201,60,0.03);
+    animation:card-rise .7s cubic-bezier(.2,.8,.2,1);
+  }
+  @keyframes card-rise{ from{opacity:0; transform:translateY(18px);} to{opacity:1; transform:translateY(0);} }
+  .brand-mark{ display:flex; flex-direction:column; align-items:center; gap:10px; margin-bottom:22px; }
+  .sun-badge{ width:56px; height:56px; position:relative; }
+  .sun-badge{ position:relative; }
+  .sun-badge::before{
+    content:''; position:absolute; inset:-14px; border-radius:50%;
+    background:radial-gradient(circle, rgba(255,201,60,.5) 0%, rgba(255,201,60,0) 70%);
+    animation:sun-halo 3.2s ease-in-out infinite;
+  }
+  @keyframes sun-halo{
+    0%,100%{ transform:scale(0.85); opacity:.55; }
+    50%{ transform:scale(1.25); opacity:1; }
+  }
+  .sun-badge .core{
+    width:100%; height:100%; border-radius:50%; position:relative; z-index:1;
+    background:radial-gradient(circle at 35% 30%, var(--yellow), var(--amber) 70%);
+    box-shadow:0 0 0 0 rgba(255,201,60,.55);
+    animation:pulse-ring 2.6s ease-out infinite, sun-glow 3.2s ease-in-out infinite;
+  }
+  @keyframes pulse-ring{
+    0%{ box-shadow:0 0 0 0 rgba(255,201,60,.45); }
+    70%{ box-shadow:0 0 0 16px rgba(255,201,60,0); }
+    100%{ box-shadow:0 0 0 0 rgba(255,201,60,0); }
+  }
+  @keyframes sun-glow{
+    0%,100%{ filter:brightness(1) saturate(1); }
+    50%{ filter:brightness(1.28) saturate(1.15); }
+  }
+  .brand-name{ font-family:var(--font-display); font-weight:700; font-size:22px; letter-spacing:.2px; margin-top:8px; }
+  .brand-name span{ color:var(--yellow); }
+  .brand-sub{ font-family:var(--font-mono); font-size:11px; letter-spacing:2.5px; text-transform:uppercase; color:var(--sky-pale); opacity:.75; margin-bottom:6px; }
+
+  .field{ margin-bottom:16px; }
+  .field label{ display:block; font-size:12px; font-weight:600; color:var(--sky-pale); margin-bottom:6px; letter-spacing:.3px; }
+  .field input{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid rgba(191,230,251,0.18);
+    background:rgba(6,26,43,0.55); color:var(--text-hi); font-size:14px; font-family:var(--font-body);
+    transition:border-color .15s, box-shadow .15s;
+  }
+  .field input::placeholder{ color:var(--text-lo); }
+  .field input:focus{ border-color:var(--sky); box-shadow:0 0 0 3px rgba(70,184,240,0.18); outline:none; }
+  .select-input{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid rgba(191,230,251,0.18);
+    background:rgba(6,26,43,0.55); color:var(--text-hi); font-size:14px; font-family:var(--font-body);
+  }
+  .select-input:focus{ border-color:var(--sky); box-shadow:0 0 0 3px rgba(70,184,240,0.18); outline:none; }
+
+  /* ---------- CHECKLIST BUILDER (stage weighting) ---------- */
+  .sm-item-row{ display:flex; align-items:center; gap:8px; background:rgba(191,230,251,0.05); border:1px solid rgba(191,230,251,0.1); border-radius:9px; padding:8px 10px; margin-bottom:8px; }
+  .sm-item-row input[type="checkbox"]{ width:16px; height:16px; accent-color:var(--green); flex-shrink:0; }
+  .sm-item-name{ flex:1; min-width:0; background:none; border:none; color:var(--text-hi); font-size:12.5px; font-family:var(--font-body); outline:none; }
+  .sm-item-weight{ width:56px; background:rgba(6,26,43,0.6); border:1px solid rgba(191,230,251,0.16); border-radius:6px; color:var(--text-hi); font-size:12px; padding:5px 6px; text-align:center; font-family:var(--font-mono); }
+  .sm-item-pct-sign{ font-size:11px; color:var(--text-lo); }
+  .sm-item-remove{ background:none; border:none; color:#ff97a2; font-size:16px; line-height:1; padding:2px 4px; flex-shrink:0; }
+  .sm-item-remove:hover{ color:var(--red); }
+  .sm-checklist-wrap{ max-height:min(56vh, 460px); overflow-y:auto; padding-right:4px; }
+  .sm-weight-sum{ font-family:var(--font-mono); font-size:12px; font-weight:700; }
+  .sm-weight-sum.ok{ color:var(--green); }
+  .sm-weight-sum.bad{ color:var(--red); }
+
+  /* ---------- TASK ITEM CARD (assign / submit / approve workflow) ---------- */
+  .task-item-card{ background:rgba(191,230,251,0.05); border:1px solid rgba(191,230,251,0.1); border-radius:10px; padding:10px 12px; margin-bottom:9px; }
+  .task-item-top{ display:flex; align-items:center; gap:8px; margin-bottom:9px; }
+  .task-item-sl{ font-family:var(--font-mono); font-size:10.5px; color:var(--text-lo); background:rgba(191,230,251,0.09); border-radius:6px; padding:3px 7px; flex-shrink:0; }
+  .task-item-top .sm-item-name{ flex:1; min-width:0; background:none; border:none; color:var(--text-hi); font-size:12.5px; font-family:var(--font-body); outline:none; }
+  .task-item-mid{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  .task-item-assign{ display:flex; flex-direction:column; gap:4px; flex:1; min-width:170px; }
+  .task-item-assign label{ font-size:9.5px; color:var(--text-lo); text-transform:uppercase; letter-spacing:.4px; font-weight:600; }
+  .task-assignee-select{ padding:7px 9px; border-radius:7px; border:1px solid rgba(191,230,251,0.18); background:rgba(6,26,43,0.55); color:var(--text-hi); font-size:12px; font-family:var(--font-body); }
+  .task-item-status{ display:flex; flex-direction:column; gap:6px; align-items:flex-start; }
+  .task-status-label{ font-size:10.5px; color:var(--text-lo); font-family:var(--font-mono); white-space:nowrap; }
+  .task-status-lights{ display:flex; gap:6px; }
+  .task-light{ width:11px; height:11px; border-radius:50%; background:rgba(191,230,251,0.12); border:1px solid rgba(191,230,251,0.2); }
+  .task-light.red.active{ background:var(--red); border-color:var(--red); animation:dot-blink 1.3s ease-in-out infinite; }
+  .task-light.orange.active{ background:var(--orange); border-color:var(--orange); animation:dot-blink 1.3s ease-in-out infinite; }
+  .task-light.green.active{ background:var(--green); border-color:var(--green); }
+  .task-light.green.active.flash{ animation:dot-blink 0.5s ease-in-out 5; }
+  .task-item-weight{ display:flex; align-items:center; gap:5px; }
+  .task-item-files{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  .task-file-chip{ display:flex; align-items:center; gap:6px; background:rgba(70,184,240,0.1); border:1px solid rgba(70,184,240,0.25); border-radius:8px; padding:5px 10px; font-size:11px; font-family:var(--font-mono); color:var(--sky-pale); }
+  .task-item-action-row{ margin-top:10px; }
+  .task-attach-label{ font-size:11px; background:rgba(191,230,251,0.06); border:1px solid rgba(191,230,251,0.16); color:var(--sky-pale); padding:6px 11px; border-radius:8px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+  .task-attach-label:hover{ background:rgba(191,230,251,0.11); }
+  .task-approve-btn{ background:linear-gradient(180deg, var(--green), #178f5c); border:none; color:#fff; font-weight:700; font-size:11.5px; padding:7px 13px; border-radius:8px; }
+
+  .row-between{ display:flex; align-items:center; justify-content:space-between; margin:2px 0 20px; font-size:12.5px; }
+  .remember{ display:flex; align-items:center; gap:6px; color:var(--text-lo); }
+  .forgot-link{ color:var(--sky); text-decoration:none; }
+  .forgot-link:hover{ text-decoration:underline; }
+
+  .btn-primary{
+    width:100%; padding:13px; border:none; border-radius:10px;
+    background:linear-gradient(180deg, var(--yellow), var(--amber));
+    color:#241a02; font-weight:700; font-size:14.5px; font-family:var(--font-display);
+    letter-spacing:.3px;
+    box-shadow:0 10px 24px -8px rgba(255,201,60,.45);
+    transition:transform .12s, box-shadow .12s;
+  }
+  .btn-primary:hover{ transform:translateY(-1px); box-shadow:0 14px 28px -8px rgba(255,201,60,.55); }
+  .btn-primary:active{ transform:translateY(0); }
+
+  .divider{ display:flex; align-items:center; gap:10px; margin:18px 0; color:var(--text-lo); font-size:11px; }
+  .console-switch{ text-align:center; margin-top:16px; font-size:12px; }
+  .console-switch a{ color:var(--sky); text-decoration:none; font-weight:600; }
+  .console-switch a:hover{ text-decoration:underline; }
+  .role-btn-col{ display:flex; flex-direction:column; gap:12px; margin-bottom:6px; }
+  .role-btn{
+    display:flex; align-items:center; gap:14px; width:100%; padding:16px 18px; border-radius:14px;
+    background:rgba(191,230,251,0.06); border:1px solid rgba(191,230,251,0.16); text-align:left;
+    transition:background .15s, border-color .15s, transform .12s;
+  }
+  .role-btn:hover{ background:rgba(191,230,251,0.11); border-color:var(--sky); transform:translateY(-1px); }
+  .role-ic{ font-size:24px; flex-shrink:0; }
+  .role-t{ display:block; font-family:var(--font-display); font-weight:700; font-size:14.5px; color:var(--text-hi); }
+  .role-s{ display:block; font-size:11px; color:var(--text-lo); margin-top:2px; }
+  .divider::before, .divider::after{ content:''; flex:1; height:1px; background:rgba(191,230,251,0.14); }
+
+  .btn-google{
+    width:100%; padding:11px; border-radius:10px; border:1px solid rgba(191,230,251,0.18);
+    background:rgba(255,255,255,0.03); color:var(--text-hi); font-size:13.5px; font-weight:600;
+    display:flex; align-items:center; justify-content:center; gap:10px;
+  }
+  .btn-google:hover{ background:rgba(255,255,255,0.06); }
+
+  .login-error{
+    display:none; background:rgba(255,83,100,0.12); border:1px solid rgba(255,83,100,0.35);
+    color:#ffb3ba; font-size:12.5px; padding:9px 12px; border-radius:8px; margin-bottom:14px;
+  }
+  /* ---------- PROJECT STAGES & CHECKLIST ---------- */
+  .stages-grid { display:grid; gap:12px; margin-top:20px; }
+  .stage-card {
+    background:linear-gradient(135deg, rgba(15,52,84,0.6), rgba(18,60,96,0.4));
+    border:1px solid rgba(70,184,240,0.2);
+    border-radius:12px; padding:18px; cursor:pointer;
+    transition:all .2s ease; display:flex; align-items:center; justify-content:space-between;
+  }
+  .stage-card:hover { border-color:rgba(70,184,240,0.4); background:linear-gradient(135deg, rgba(15,52,84,0.8), rgba(18,60,96,0.6)); }
+  .stage-info { flex:1; }
+  .stage-title { font-size:15px; font-weight:600; color:var(--text-hi); margin:0; }
+  .stage-desc { font-size:12px; color:var(--text-lo); margin:4px 0 0; }
+  .stage-progress { display:flex; align-items:center; gap:10px; min-width:180px; justify-content:flex-end; }
+  .stage-status-badge {
+    background:rgba(255,201,60,0.12); border:1px solid rgba(255,201,60,0.3); color:var(--yellow);
+    padding:4px 10px; border-radius:6px; font-size:11px; font-weight:600; white-space:nowrap;
+  }
+  .stage-status-badge.done { background:rgba(34,160,107,0.12); border-color:rgba(34,160,107,0.3); color:var(--green); }
+  .stage-status-badge.pending { background:rgba(255,83,100,0.12); border-color:rgba(255,83,100,0.3); color:var(--red); }
+  .stage-item-count { font-size:12px; color:var(--text-lo); }
+  .stage-view-icon { width:28px; height:28px; border-radius:6px; background:rgba(70,184,240,0.2); display:flex; align-items:center; justify-content:center; color:var(--sky); }
+
+  .checklist-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100; align-items:center; justify-content:center; }
+  .checklist-modal.show { display:flex; }
+  .checklist-content {
+    background:var(--navy-panel); border-radius:16px; max-width:900px; width:95%; max-height:90vh; overflow-y:auto;
+    border:1px solid rgba(70,184,240,0.15); box-shadow:0 20px 60px rgba(0,0,0,0.5);
+  }
+  .checklist-header { 
+    padding:28px; border-bottom:1px solid rgba(70,184,240,0.15); display:flex; justify-content:space-between; align-items:start;
+    background:linear-gradient(180deg, rgba(20,40,60,0.6), rgba(10,30,50,0.3));
+  }
+  .checklist-title-section h2 { margin:0; font-size:22px; color:var(--text-hi); }
+  .checklist-title-section p { margin:6px 0 0; color:var(--text-lo); font-size:13px; }
+  .checklist-close { background:none; border:none; color:var(--text-lo); font-size:24px; cursor:pointer; }
+  .checklist-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:20px; }
+  .stat-box { background:rgba(70,184,240,0.08); padding:12px; border-radius:8px; text-align:center; }
+  .stat-number { font-size:20px; font-weight:700; color:var(--yellow); }
+  .stat-label { font-size:11px; color:var(--text-lo); margin-top:4px; }
+
+  .checklist-items { padding:20px 28px; }
+  .checklist-item { 
+    background:rgba(20,40,60,0.4); border:1px solid rgba(70,184,240,0.12); border-radius:10px;
+    padding:16px; margin-bottom:14px; position:relative;
+  }
+  .item-header { display:flex; justify-content:space-between; align-items:start; margin-bottom:12px; }
+  .item-title { font-size:14px; font-weight:600; color:var(--text-hi); }
+  .item-number { font-size:12px; color:var(--text-lo); font-weight:500; margin-right:8px; }
+  .item-percent { background:rgba(255,201,60,0.15); color:var(--yellow); padding:4px 10px; border-radius:6px; font-size:12px; font-weight:600; }
+  .item-close { position:absolute; top:12px; right:12px; background:none; border:none; color:var(--red); cursor:pointer; font-size:18px; }
+  .item-assigned { font-size:12px; color:var(--text-lo); margin:8px 0 4px; }
+  .item-assigned strong { color:var(--sky); }
+  .item-approval { display:flex; align-items:center; gap:8px; margin:8px 0; }
+  .approval-badge { width:12px; height:12px; border-radius:50%; background:rgba(70,184,240,0.3); }
+  .approval-badge.done { background:var(--green); }
+  .approval-badge.pending { background:rgba(255,201,60,0.6); }
+  .approval-text { font-size:11px; color:var(--text-lo); }
+  .item-file { background:rgba(70,184,240,0.1); border:1px solid rgba(70,184,240,0.2); border-radius:6px; padding:8px 12px; margin-top:8px; font-size:12px; color:var(--sky); display:flex; align-items:center; gap:6px; }
+  .file-view-btn{ background:rgba(70,184,240,0.16); border:1px solid rgba(70,184,240,0.3); color:var(--sky-pale); border-radius:6px; width:26px; height:26px; font-size:13px; flex-shrink:0; }
+  .file-view-btn:hover{ background:rgba(70,184,240,0.28); }
+  .reschedule-btn{ margin-left:auto; background:rgba(255,145,66,0.14); border:1px solid rgba(255,145,66,0.35); color:#ffb27a; font-size:10.5px; font-weight:700; padding:5px 10px; border-radius:7px; }
+  .reschedule-btn:hover{ background:rgba(255,145,66,0.24); }
+
+  .mini-modal-overlay{ display:none; position:fixed; inset:0; background:rgba(4,16,26,0.72); z-index:150; }
+  .mini-modal-overlay.show{ display:block; }
+  .mini-modal{
+    display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:160;
+    width:100%; max-width:420px; background:var(--navy-panel-2); border:1px solid var(--navy-line);
+    border-radius:16px; padding:24px; box-shadow:0 30px 70px -20px rgba(0,0,0,0.6);
+  }
+  .mini-modal.show{ display:block; }
+
+  .item-title-input{ background:none; border:none; border-bottom:1px dashed transparent; color:var(--text-hi); font-size:14px; font-weight:600; font-family:var(--font-body); padding:2px 0; width:100%; }
+  .item-title-input:hover, .item-title-input:focus{ border-bottom-color:rgba(191,230,251,0.3); outline:none; }
+  .item-desc-input{ background:none; border:none; border-bottom:1px dashed transparent; color:var(--text-lo); font-size:12px; font-family:var(--font-body); padding:2px 0; width:100%; margin-top:2px; }
+  .item-desc-input:hover, .item-desc-input:focus{ border-bottom-color:rgba(191,230,251,0.3); outline:none; }
+  .item-weight-input{ width:52px; background:rgba(6,26,43,0.6); border:1px solid rgba(191,230,251,0.18); border-radius:6px; color:var(--yellow); font-size:12px; font-weight:700; font-family:var(--font-mono); padding:4px 6px; text-align:center; }
+  .item-weight-wrap{ display:flex; align-items:center; gap:5px; }
+  .item-weight-wrap .sign{ font-size:11px; color:var(--text-lo); }
+  .item-assignee-select{ width:100%; background:rgba(6,26,43,0.55); border:1px solid rgba(191,230,251,0.18); border-radius:7px; color:var(--sky-pale); font-size:12px; font-family:var(--font-body); padding:6px 8px; margin-top:2px; }
+  .item-done-row{ display:flex; align-items:center; gap:7px; margin:8px 0; }
+  .item-done-row input[type="checkbox"]{ width:15px; height:15px; accent-color:var(--green); }
+  .item-done-row label{ font-size:11.5px; color:var(--text-lo); }
+
+  .sheet-sum-row{ display:flex; align-items:center; justify-content:space-between; margin:18px 28px 0; padding:10px 14px; border-radius:10px; background:rgba(191,230,251,0.05); border:1px solid rgba(191,230,251,0.12); }
+  .sheet-sum-row .lbl{ font-size:11.5px; color:var(--text-lo); font-weight:600; text-transform:uppercase; letter-spacing:.3px; }
+  .sheet-sum-badge{ font-family:var(--font-mono); font-size:13px; font-weight:700; padding:3px 10px; border-radius:999px; }
+  .sheet-sum-badge.ok{ color:var(--green); background:rgba(34,160,107,0.16); }
+  .sheet-sum-badge.bad{ color:var(--red); background:rgba(255,83,100,0.16); }
+
+  .add-item-btn{ margin:16px 28px 0; width:calc(100% - 56px); padding:11px; border-radius:10px; border:1px dashed rgba(191,230,251,0.25); background:rgba(191,230,251,0.04); color:var(--sky-pale); font-size:12.5px; font-weight:600; }
+  .add-item-btn:hover{ background:rgba(191,230,251,0.08); }
+  .add-item-form{ margin:14px 28px 0; padding:16px; border-radius:12px; background:rgba(70,184,240,0.06); border:1px solid rgba(70,184,240,0.2); display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .add-item-form .full{ grid-column:1 / -1; }
+  .add-item-form input, .add-item-form select{
+    width:100%; padding:9px 11px; border-radius:8px; border:1px solid rgba(191,230,251,0.18);
+    background:rgba(6,26,43,0.55); color:var(--text-hi); font-size:12.5px; font-family:var(--font-body);
+  }
+  .add-item-form .actions{ grid-column:1 / -1; display:flex; gap:8px; justify-content:flex-end; margin-top:4px; }
+
+  .checklist-progress { padding:0 28px 20px; }
+  .progress-bar { width:100%; height:6px; background:rgba(70,184,240,0.1); border-radius:3px; overflow:hidden; }
+  .progress-fill { height:100%; background:linear-gradient(90deg, var(--yellow), var(--amber)); transition:width .3s ease; }
+  .progress-label { font-size:12px; color:var(--text-lo); margin-top:8px; }
+
+  .checklist-actions { padding:20px 28px; border-top:1px solid rgba(70,184,240,0.15); display:flex; gap:12px; justify-content:flex-end; }
+  .btn-action { padding:10px 20px; border-radius:8px; border:none; font-weight:600; font-size:13px; cursor:pointer; }
+  .btn-close-modal { background:rgba(70,184,240,0.2); color:var(--sky); }
+  .btn-close-modal:hover { background:rgba(70,184,240,0.3); }
+  .btn-save { background:linear-gradient(180deg, var(--yellow), var(--amber)); color:#241a02; }
+  .btn-save:hover { opacity:.9; }
+  .btn-approve { background:linear-gradient(180deg, var(--green), #178f5c); color:white; }
+  .btn-approve:hover { opacity:.9; }
+
+  .assignment-detail { background:rgba(70,184,240,0.08); border-left:3px solid var(--sky); padding:12px; border-radius:6px; margin-top:10px; font-size:12px; }
+  .assignment-detail strong { color:var(--sky); }
+
+
+  #app-view{ display:none; min-height:100vh; position:relative; }
+  .app-bg-tex{
+    position:fixed; inset:0; z-index:0; pointer-events:none;
+    opacity:0.05;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='140'%3E%3Crect x='4' y='4' width='94' height='60' rx='3' fill='none' stroke='%2346b8f0' stroke-width='1'/%3E%3Crect x='108' y='4' width='94' height='60' rx='3' fill='none' stroke='%2346b8f0' stroke-width='1'/%3E%3Crect x='4' y='76' width='94' height='60' rx='3' fill='none' stroke='%2346b8f0' stroke-width='1'/%3E%3Crect x='108' y='76' width='94' height='60' rx='3' fill='none' stroke='%2346b8f0' stroke-width='1'/%3E%3Cline x1='4' y1='34' x2='98' y2='34' stroke='%2346b8f0' stroke-width='0.6'/%3E%3Cline x1='108' y1='34' x2='202' y2='34' stroke='%2346b8f0' stroke-width='0.6'/%3E%3Cline x1='4' y1='106' x2='98' y2='106' stroke='%2346b8f0' stroke-width='0.6'/%3E%3Cline x1='108' y1='106' x2='202' y2='106' stroke='%2346b8f0' stroke-width='0.6'/%3E%3C/svg%3E");
+    background-size:220px 140px;
+  }
+  .topbar, .main{ position:relative; z-index:1; }
+
+  /* ---------- SIDEBAR ---------- */
+  .app-shell{ display:flex; min-height:100vh; }
+  .sidebar{
+    width:232px; flex-shrink:0; min-height:100vh; position:sticky; top:0; align-self:flex-start;
+    background:linear-gradient(180deg, #0c3050 0%, #0a2338 100%);
+    border-right:1px solid var(--navy-line);
+    padding:22px 14px 18px; display:flex; flex-direction:column; z-index:5;
+  }
+  .sidebar-brand{ display:flex; align-items:center; gap:11px; padding:0 8px; margin-bottom:26px; }
+  .sidebar-brand .sun-badge{ width:32px; height:32px; }
+  .sidebar-brand .bn{ font-family:var(--font-display); font-weight:700; font-size:15px; line-height:1.2; }
+  .sidebar-brand .bn span{ color:var(--yellow); }
+  .sidebar-nav{ display:flex; flex-direction:column; gap:7px; }
+  .nav-item{
+    display:flex; align-items:center; gap:13px; padding:12px 12px; border-radius:13px;
+    background:transparent; border:1px solid transparent; border-left:3px solid transparent;
+    color:var(--text-lo); text-align:left; width:100%; font-size:13.5px; font-weight:600;
+    transition:background .15s, color .15s, border-color .15s, transform .12s;
+  }
+  .nav-item:hover{ background:rgba(191,230,251,0.06); color:var(--text-hi); transform:translateX(2px); }
+  .nav-item.active{
+    background:rgba(255,201,60,0.10); border-color:rgba(255,201,60,0.22); border-left-color:var(--yellow);
+    color:var(--yellow); box-shadow:0 8px 20px -10px rgba(255,201,60,.4);
+  }
+  .nav-icon{
+    width:36px; height:36px; border-radius:10px; background:rgba(191,230,251,0.08);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:background .15s;
+  }
+  .nav-item.active .nav-icon{ background:rgba(255,201,60,0.2); }
+  .nav-icon svg{ width:18px; height:18px; stroke:currentColor; }
+  .sidebar-foot{ margin-top:auto; padding:14px 10px 2px; font-size:10px; color:var(--text-lo); font-family:var(--font-mono); border-top:1px solid rgba(191,230,251,0.08); line-height:1.6; }
+  .app-content{ flex:1; min-width:0; }
+
+  @media (max-width:980px){
+    .sidebar{ width:78px; padding:18px 10px; }
+    .sidebar-brand{ justify-content:center; padding:0; }
+    .sidebar-brand .bn, .sidebar-foot{ display:none; }
+    .nav-item{ justify-content:center; padding:12px 0; }
+    .nav-item span.nav-label{ display:none; }
+  }
+
+  .topbar{
+    position:sticky; top:0; z-index:30;
+    background:linear-gradient(180deg, #0c2f4b, #0a2a43 90%);
+    border-bottom:1px solid var(--navy-line);
+    padding:14px 28px 0;
+  }
+  .topbar-inner{ display:flex; align-items:center; justify-content:space-between; padding-bottom:12px; }
+  .topbar-left{ display:flex; align-items:center; gap:12px; }
+  .topbar-left .sun-badge{ width:32px; height:32px; }
+  .topbar-title{ font-family:var(--font-display); font-weight:700; font-size:17px; }
+  .topbar-title span{ color:var(--yellow); }
+  .breadcrumb{ font-family:var(--font-mono); font-size:11px; color:var(--text-lo); margin-top:1px; }
+  .breadcrumb b{ color:var(--sky-pale); font-weight:500; cursor:pointer; }
+  .topbar-right{ display:flex; align-items:center; gap:18px; }
+  .storage-meter{ display:flex; flex-direction:column; gap:4px; min-width:210px; }
+  .storage-meter .label{ font-size:10.5px; color:var(--text-lo); font-family:var(--font-mono); display:flex; justify-content:space-between; gap:10px; white-space:nowrap; }
+  .storage-meter .label span:first-child{ overflow:hidden; text-overflow:ellipsis; }
+  .storage-bar{ height:6px; border-radius:4px; background:rgba(191,230,251,0.12); overflow:hidden; }
+  .storage-bar-fill{ height:100%; background:linear-gradient(90deg, var(--sky), var(--yellow)); width:34%; border-radius:4px; }
+  .md-chip{ display:flex; align-items:center; gap:9px; padding:6px 12px 6px 6px; border-radius:999px; background:rgba(191,230,251,0.06); border:1px solid rgba(191,230,251,0.12); }
+  .md-avatar{ width:26px; height:26px; border-radius:50%; background:linear-gradient(135deg, var(--sky), #2a7fb0); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; font-family:var(--font-display); }
+  .md-chip .nm{ font-size:12.5px; font-weight:600; }
+  .md-chip .rl{ font-size:10px; color:var(--text-lo); }
+  .logout-btn{ background:none; border:1px solid rgba(255,83,100,0.3); color:#ff97a2; font-size:11.5px; padding:6px 12px; border-radius:8px; }
+  .logout-btn:hover{ background:rgba(255,83,100,0.1); }
+
+  .main{ padding:26px 28px 60px; max-width:1320px; margin:0 auto; }
+
+  /* ---------- TEAM MANAGEMENT ---------- */
+  .dept-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:18px; }
+  .dept-panel{ background:var(--navy-panel); border:1px solid var(--navy-line); border-radius:14px; padding:20px; }
+  .dept-panel h3{ font-family:var(--font-display); font-size:15px; margin-bottom:2px; }
+  .dept-panel .count{ font-size:11px; color:var(--text-lo); margin-bottom:12px; font-family:var(--font-mono); }
+  .member-row{ display:flex; align-items:center; gap:11px; padding:10px 0; border-top:1px solid rgba(191,230,251,0.07); }
+  .member-row:first-of-type{ border-top:none; }
+  .member-avatar{ width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg, var(--sky), #2a7fb0); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; font-family:var(--font-display); flex-shrink:0; }
+  .member-info{ flex:1; min-width:0; }
+  .member-info .nm{ font-size:12.5px; font-weight:600; }
+  .member-info .desig{ font-size:10.5px; color:var(--text-lo); margin-top:1px; }
+  .member-info .status{ font-size:10.5px; font-family:var(--font-mono); margin-top:2px; }
+  .member-info .status.ok{ color:var(--green); }
+  .member-info .status.locked{ color:var(--red); }
+  .member-pin{ font-family:var(--font-mono); font-size:12px; font-weight:700; color:var(--yellow); background:rgba(255,201,60,0.12); border:1px solid rgba(255,201,60,0.28); padding:4px 9px; border-radius:7px; letter-spacing:1px; flex-shrink:0; }
+  .member-actions{ display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0; }
+  .member-reset{ font-size:10.5px; background:none; border:1px solid rgba(191,230,251,0.16); color:var(--sky-pale); padding:5px 9px; border-radius:7px; flex-shrink:0; }
+  .member-reset:hover{ background:rgba(191,230,251,0.08); }
+
+  .refresh-btn{
+    background:rgba(191,230,251,0.08); border:1px solid rgba(191,230,251,0.18); color:var(--sky-pale);
+    width:34px; height:34px; border-radius:9px; font-size:15px; display:inline-flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+  }
+  .refresh-btn:hover{ background:rgba(191,230,251,0.16); }
+  .refresh-btn.spin{ animation:refresh-spin .5s ease; }
+  @keyframes refresh-spin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
+
+  /* ---------- SETTINGS ---------- */
+  .settings-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:18px; }
+  .settings-card{ background:var(--navy-panel); border:1px solid var(--navy-line); border-radius:14px; padding:20px; }
+  .settings-card h3{ font-family:var(--font-display); font-size:14.5px; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+  .settings-row{ display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-top:1px solid rgba(191,230,251,0.07); font-size:12.5px; gap:12px; }
+  .settings-row:first-of-type{ border-top:none; }
+  .settings-row .k{ color:var(--text-lo); }
+  .settings-row .v{ font-family:var(--font-mono); font-size:11.5px; text-align:right; }
+  .status-dot-row{ display:flex; align-items:center; gap:7px; }
+  .status-dot-row .dot{ width:7px; height:7px; border-radius:50%; background:var(--green); flex-shrink:0; }
+  .toggle{ position:relative; width:38px; height:21px; background:rgba(191,230,251,0.15); border-radius:999px; flex-shrink:0; transition:background .15s; }
+  .toggle.on{ background:var(--sky); }
+  .toggle .knob{ position:absolute; top:2px; left:2px; width:17px; height:17px; border-radius:50%; background:#fff; transition:left .15s; }
+  .toggle.on .knob{ left:19px; }
+
+  /* ---------- REPORTS CORNER ---------- */
+  .reports-subtitle{ font-size:12px; color:var(--text-lo); margin-top:-10px; margin-bottom:22px; }
+  .report-block{ background:var(--navy-panel); border:1px solid var(--navy-line); border-radius:14px; padding:22px; margin-bottom:22px; }
+  .report-block-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px; }
+  .report-block-head h3{ font-family:var(--font-display); font-size:15.5px; }
+  .report-select{ padding:9px 12px; border-radius:9px; border:1px solid rgba(191,230,251,0.18); background:rgba(6,26,43,0.55); color:var(--text-hi); font-size:12.5px; }
+  .activity-date-group{ margin-bottom:20px; }
+  .activity-date-group:last-child{ margin-bottom:0; }
+  .activity-date-label{ font-family:var(--font-mono); font-size:11.5px; color:var(--yellow); text-transform:uppercase; letter-spacing:.6px; margin-bottom:10px; padding-bottom:7px; border-bottom:1px solid var(--navy-line); }
+  .activity-item{ display:flex; gap:13px; padding:2px 0 14px; }
+  .activity-dot-col{ display:flex; flex-direction:column; align-items:center; }
+  .activity-dot{ width:9px; height:9px; border-radius:50%; background:var(--sky); margin-top:5px; flex-shrink:0; }
+  .activity-line{ flex:1; width:1px; background:var(--navy-line); margin-top:4px; }
+  .activity-item:last-child .activity-line{ display:none; }
+  .activity-body{ flex:1; min-width:0; }
+  .activity-meta{ display:flex; gap:8px; align-items:center; font-size:11px; color:var(--text-lo); font-family:var(--font-mono); margin-bottom:4px; flex-wrap:wrap; }
+  .activity-text{ font-size:13px; line-height:1.45; }
+  .activity-tag{ font-size:9.5px; background:rgba(70,184,240,0.16); color:var(--sky-pale); padding:2px 7px; border-radius:6px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; }
+
+  /* ---------- DASHBOARD (LEVEL 1) ---------- */
+  .stat-strip{ display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:26px; }
+  .stat-card{
+    background:var(--navy-panel); border:1px solid var(--navy-line); border-radius:14px; padding:18px 20px;
+    position:relative; overflow:hidden;
+  }
+  .stat-card::after{ content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--accent-color,var(--sky)); }
+  .stat-card .num{ font-family:var(--font-display); font-size:32px; font-weight:700; font-variant-numeric:tabular-nums; }
+  .stat-card .lbl{ font-size:12px; color:var(--text-lo); margin-top:4px; font-weight:600; letter-spacing:.2px; }
+  .stat-total{ --accent-color:var(--sky); }
+  .stat-red{ --accent-color:var(--red); }
+  .stat-yellow{ --accent-color:var(--yellow); }
+  .stat-green{ --accent-color:var(--green); }
+
+  .section-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .section-head h2{ font-family:var(--font-display); font-size:18px; font-weight:600; }
+  .section-actions{ display:flex; gap:10px; }
+  .btn-ghost{ background:rgba(191,230,251,0.06); border:1px solid rgba(191,230,251,0.16); color:var(--sky-pale); font-size:12.5px; font-weight:600; padding:9px 14px; border-radius:9px; display:flex; align-items:center; gap:7px; }
+  .btn-ghost:hover{ background:rgba(191,230,251,0.11); }
+  .btn-yellow{ background:var(--yellow); border:none; color:#241a02; font-weight:700; font-size:12.5px; padding:9px 16px; border-radius:9px; }
+  .btn-yellow:hover{ background:var(--amber); }
+
+  .project-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:18px; }
+  .project-card{
+    background:var(--navy-panel); border:1px solid var(--navy-line); border-radius:16px; padding:20px;
+    cursor:pointer; transition:transform .15s, border-color .15s, box-shadow .15s; position:relative; overflow:hidden;
+  }
+  .project-card:hover{ transform:translateY(-3px); border-color:var(--sky); box-shadow:0 14px 30px -14px rgba(70,184,240,0.35); }
+  .project-card .grid-tex{ position:absolute; inset:0; opacity:.05; pointer-events:none; }
+  .project-card .pname{ font-family:var(--font-display); font-size:16.5px; font-weight:600; margin-bottom:2px; }
+  .project-card .pclient{ font-size:12px; color:var(--text-lo); margin-bottom:16px; }
+  .pill-row{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+  .pill{ display:flex; align-items:center; gap:6px; font-size:11.5px; font-weight:600; padding:5px 10px; border-radius:999px; font-family:var(--font-mono); }
+  .pill-dot{ width:7px; height:7px; border-radius:50%; }
+  .pill-red{ background:rgba(255,83,100,0.14); color:#ff97a2; } .pill-red .pill-dot{ background:var(--red); }
+  .pill-yellow{ background:rgba(255,201,60,0.14); color:#ffdb82; } .pill-yellow .pill-dot{ background:var(--yellow); }
+  .pill-green{ background:rgba(34,160,107,0.14); color:#6fe0b3; } .pill-green .pill-dot{ background:var(--green); }
+  .card-foot{ display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--text-lo); border-top:1px solid rgba(191,230,251,0.08); padding-top:12px; font-family:var(--font-mono); }
+
+  /* ---------- PROJECT ROW-REPORT (LEVEL 2) ---------- */
+  .table-toolbar{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; gap:16px; flex-wrap:wrap; }
+  .table-wrap{ background:var(--navy-panel); border:1px solid var(--navy-line); border-radius:14px; overflow:hidden; }
+  table{ width:100%; border-collapse:collapse; }
+  thead th{
+    text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--text-lo);
+    padding:14px 16px; background:rgba(191,230,251,0.04); border-bottom:1px solid var(--navy-line); font-weight:600;
+  }
+  tbody td{ padding:14px 16px; font-size:13px; border-bottom:1px solid rgba(191,230,251,0.06); vertical-align:middle; }
+  tbody tr{ cursor:pointer; transition:background .12s; border-left:3px solid transparent; }
+  tbody tr:hover{ background:rgba(191,230,251,0.04); }
+  tbody tr.row-red{ border-left-color:var(--red); background:rgba(255,83,100,0.045); }
+  tbody tr.row-yellow{ border-left-color:var(--yellow); background:rgba(255,201,60,0.045); }
+  tbody tr.row-green{ border-left-color:var(--green); background:rgba(34,160,107,0.045); }
+  .status-tag{ display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; font-family:var(--font-mono); padding:5px 12px; border-radius:999px; border:1px solid transparent; }
+  .status-tag.red{ background:rgba(255,83,100,0.16); color:#ff97a2; border-color:rgba(255,83,100,0.3); animation:tag-blink 1.5s ease-in-out infinite; }
+  .status-tag.yellow{ background:rgba(255,201,60,0.16); color:#ffdb82; border-color:rgba(255,201,60,0.32); animation:tag-blink 1.5s ease-in-out infinite; }
+  .status-tag.green{ background:rgba(34,160,107,0.16); color:#6fe0b3; border-color:rgba(34,160,107,0.32); }
+  .status-tag.green.flash-once{ animation:tag-blink 0.55s ease-in-out 4; }
+  .status-tag .dot{ width:6px; height:6px; border-radius:50%; background:currentColor; }
+  .status-tag.red .dot{ animation:dot-blink 1.5s ease-in-out infinite; }
+  .status-tag.yellow .dot{ animation:dot-blink 1.5s ease-in-out infinite; }
+  .status-tag.green.flash-once .dot{ animation:dot-blink 0.55s ease-in-out 4; }
+  @keyframes tag-blink{ 0%,100%{ opacity:1; } 50%{ opacity:.4; } }
+  @keyframes dot-blink{ 0%,100%{ opacity:1; box-shadow:0 0 0 0 currentColor; } 50%{ opacity:.5; box-shadow:0 0 7px 1px currentColor; } }
+  .mono-cell{ font-family:var(--font-mono); font-size:12px; color:var(--sky-pale); }
+  .dept-badge{ font-size:10.5px; font-weight:700; padding:3px 8px; border-radius:6px; background:rgba(70,184,240,0.14); color:var(--sky-pale); text-transform:uppercase; letter-spacing:.3px; }
+  .stage-icon-btn{ display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:7px; background:rgba(191,230,251,0.08); border:1px solid rgba(191,230,251,0.16); color:var(--sky-pale); vertical-align:middle; margin-right:9px; flex-shrink:0; }
+  .stage-icon-btn:hover{ background:rgba(255,201,60,0.16); border-color:rgba(255,201,60,0.3); color:var(--yellow); }
+  .stage-icon-btn svg{ width:13px; height:13px; }
+
+  /* ---------- MODAL / DRAWER ---------- */
+  .overlay{ display:none; position:fixed; inset:0; background:rgba(4,16,26,0.6); backdrop-filter:blur(3px); z-index:80; }
+  .overlay.show{ display:block; }
+  .modal{
+    position:fixed; top:50%; left:50%; transform:translate(-50%,-46%); z-index:90; width:100%; max-width:460px;
+    background:var(--navy-panel-2); border:1px solid var(--navy-line); border-radius:18px; padding:26px;
+    display:none; box-shadow:0 30px 70px -20px rgba(0,0,0,0.6);
+  }
+  .modal.show{ display:block; }
+  .modal h3{ font-family:var(--font-display); font-size:17px; margin-bottom:18px; }
+  .modal .field label{ color:var(--sky-pale); }
+  .modal-actions{ display:flex; gap:10px; margin-top:20px; }
+  .btn-cancel{ flex:1; background:rgba(191,230,251,0.06); border:1px solid rgba(191,230,251,0.16); color:var(--text-hi); padding:11px; border-radius:9px; font-weight:600; font-size:13px; }
+  .modal-actions .btn-primary{ flex:1.4; }
+
+  .drawer{
+    position:fixed; top:0; right:-460px; width:440px; max-width:92vw; height:100vh; z-index:90;
+    background:var(--navy-panel-2); border-left:1px solid var(--navy-line); padding:26px;
+    transition:right .28s cubic-bezier(.2,.8,.2,1); overflow-y:auto;
+  }
+  .drawer.show{ right:0; }
+  .drawer-head{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; }
+  .drawer-head h3{ font-family:var(--font-display); font-size:18px; margin-bottom:6px; max-width:340px; }
+  .drawer-close{ background:none; border:none; color:var(--text-lo); font-size:20px; }
+  .drawer-status{ margin-bottom:22px; }
+  .drawer-grid{ display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:22px; }
+  .drawer-field .k{ font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--text-lo); margin-bottom:4px; font-weight:600; }
+  .drawer-field .v{ font-size:13.5px; }
+  .drawer-field .v.mono{ font-family:var(--font-mono); color:var(--sky-pale); font-size:12.5px; }
+  .drawer-notes{ background:rgba(191,230,251,0.05); border:1px solid rgba(191,230,251,0.1); border-radius:12px; padding:14px; font-size:13px; line-height:1.5; margin-bottom:22px; color:var(--text-hi); }
+  .file-chip{ display:flex; align-items:center; gap:10px; background:rgba(70,184,240,0.08); border:1px solid rgba(70,184,240,0.22); border-radius:10px; padding:12px 14px; margin-bottom:22px; }
+  .file-chip .fname{ font-size:12.5px; font-weight:600; font-family:var(--font-mono); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .drawer-actions{ display:flex; flex-direction:column; gap:10px; }
+  .btn-approve{ background:linear-gradient(180deg, var(--green), #178f5c); border:none; color:#fff; font-weight:700; font-size:13px; padding:12px; border-radius:10px; }
+  .btn-download{ background:rgba(70,184,240,0.14); border:1px solid rgba(70,184,240,0.3); color:var(--sky-pale); font-weight:600; font-size:13px; padding:11px; border-radius:10px; }
+  .btn-clear{ background:none; border:1px dashed rgba(255,83,100,0.4); color:#ff97a2; font-weight:600; font-size:12.5px; padding:10px; border-radius:10px; }
+
+  .toast{
+    position:fixed; bottom:26px; left:50%; transform:translateX(-50%) translateY(20px); z-index:120;
+    background:var(--navy-panel-2); border:1px solid var(--sky); color:var(--text-hi); padding:12px 20px;
+    border-radius:10px; font-size:13px; opacity:0; transition:opacity .25s, transform .25s; font-weight:500;
+    box-shadow:0 10px 30px -10px rgba(0,0,0,0.5);
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* ================= TEAM CONSOLE ================= */
+  #team-login-view{
+    display:none; position:relative; min-height:100vh; align-items:center; justify-content:center; padding:24px;
+    background: linear-gradient(180deg, #123a5c 0%, #1f5f92 55%, #2f7fb8 100%);
+  }
+  #team-login-view.show{ display:flex; }
+  .tc-login-card{
+    width:100%; max-width:400px; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.14);
+    border-radius:20px; padding:34px 30px 28px; backdrop-filter:blur(14px);
+    box-shadow:0 30px 70px -20px rgba(0,0,0,0.4);
+  }
+  .tc-login-card .brand-mark{ margin-bottom:20px; }
+  .tc-error{
+    display:none; background:rgba(255,83,100,0.16); border:1px solid rgba(255,83,100,0.4);
+    color:#ffd0d5; font-size:12.5px; padding:9px 12px; border-radius:8px; margin-bottom:14px;
+  }
+  .tc-note{
+    display:none; background:rgba(255,201,60,0.16); border:1px solid rgba(255,201,60,0.4);
+    color:#fff2cc; font-size:12px; padding:9px 12px; border-radius:8px; margin-bottom:14px;
+  }
+  .tc-locked-msg{
+    display:none; background:rgba(255,83,100,0.14); border:1px solid rgba(255,83,100,0.35);
+    color:#ffd0d5; font-size:12px; padding:10px 12px; border-radius:8px; margin-bottom:14px; text-align:center;
+  }
+
+  #team-app-view{ display:none; min-height:100vh; background:linear-gradient(180deg, #123a5c 0%, #16466e 400px, var(--navy-deep) 400px); }
+  .tc-topbar{ padding:20px 24px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; }
+  .tc-topbar-left{ display:flex; align-items:center; gap:12px; }
+  .tc-topbar-left .sun-badge{ width:38px; height:38px; }
+  .tc-welcome{ font-family:var(--font-display); font-weight:700; font-size:17px; }
+  .tc-welcome span{ color:var(--yellow); }
+  .tc-role-chip{ font-size:11.5px; color:var(--sky-pale); font-family:var(--font-mono); margin-top:2px; }
+  .tc-main{ padding:6px 24px 60px; max-width:1100px; margin:0 auto; }
+  .tc-summary-strip{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:26px; }
+  .tc-summary-card{ background:var(--navy-panel); border:1px solid var(--navy-line); border-radius:14px; padding:16px 18px; text-align:center; }
+  .tc-summary-card .n{ font-family:var(--font-display); font-size:26px; font-weight:700; }
+  .tc-summary-card .l{ font-size:11px; color:var(--text-lo); margin-top:2px; font-weight:600; }
+
+  .tc-card-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px; }
+  .tc-task-card{
+    background:var(--navy-panel); border:1px solid var(--navy-line); border-radius:16px; padding:20px;
+    cursor:pointer; transition:transform .15s, border-color .15s;
+  }
+  .tc-task-card:hover{ transform:translateY(-2px); border-color:var(--sky); }
+  .tc-task-card .proj{ font-size:10.5px; color:var(--sky-pale); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:.4px; margin-bottom:6px; }
+  .tc-task-card .ttl{ font-family:var(--font-display); font-size:15px; font-weight:600; margin-bottom:6px; }
+  .tc-task-card .desc{ font-size:12px; color:var(--text-lo); margin-bottom:14px; line-height:1.4; }
+  .tc-task-card .foot{ display:flex; justify-content:space-between; align-items:center; }
+  .tc-empty-state{ text-align:center; padding:80px 20px; color:var(--text-lo); }
+  .tc-empty-state .ic{ font-size:40px; margin-bottom:12px; }
+
+  .tc-detail-body .k{ font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--text-lo); font-weight:700; margin:16px 0 6px; }
+  .tc-detail-body .k:first-child{ margin-top:0; }
+  .tc-file-list{ display:flex; flex-direction:column; gap:8px; margin-bottom:6px; }
+  .tc-attach-row{ display:flex; gap:8px; margin-top:8px; }
+  .tc-attach-row input{ flex:1; }
+
+  @media (max-width:720px){
+    .stat-strip{ grid-template-columns:repeat(2,1fr); }
+    .drawer-grid{ grid-template-columns:1fr; }
+    .topbar{ padding:12px 16px 0; }
+    .main{ padding:20px 16px 50px; }
+    .storage-meter{ display:none; }
+  }
+
+  @media (max-width:720px){
+    .tc-summary-strip{ grid-template-columns:repeat(3,1fr); gap:8px; }
+    .tc-main{ padding:6px 14px 50px; }
+    .tc-topbar{ padding:16px 14px; }
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    *{ animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important; }
+  }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+</head>
+<body>
+
+<!-- ================= LOGIN VIEW ================= -->
+<div id="login-view">
+  <svg id="solar-bg" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <linearGradient id="panelFade" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#46b8f0"/>
+        <stop offset="100%" stop-color="#0a2a43"/>
+      </linearGradient>
+      <clipPath id="glintClip"><rect x="0" y="480" width="1440" height="420"/></clipPath>
+    </defs>
+    <!-- horizon rows of solar panels, perspective -->
+    <g stroke="url(#panelFade)" stroke-width="1.2" fill="none">
+      <!-- row 1 (farthest) -->
+      <g transform="translate(0,520)">
+        <rect x="60" y="0" width="90" height="34" rx="2"/><rect x="160" y="0" width="90" height="34" rx="2"/>
+        <rect x="260" y="0" width="90" height="34" rx="2"/><rect x="360" y="0" width="90" height="34" rx="2"/>
+        <rect x="460" y="0" width="90" height="34" rx="2"/><rect x="560" y="0" width="90" height="34" rx="2"/>
+        <rect x="660" y="0" width="90" height="34" rx="2"/><rect x="760" y="0" width="90" height="34" rx="2"/>
+        <rect x="860" y="0" width="90" height="34" rx="2"/><rect x="960" y="0" width="90" height="34" rx="2"/>
+        <rect x="1060" y="0" width="90" height="34" rx="2"/><rect x="1160" y="0" width="90" height="34" rx="2"/>
+        <rect x="1260" y="0" width="90" height="34" rx="2"/>
+        <line x1="60" y1="17" x2="1350" y2="17"/>
+      </g>
+      <!-- row 2 -->
+      <g transform="translate(0,590)">
+        <rect x="30" y="0" width="130" height="52" rx="3"/><rect x="170" y="0" width="130" height="52" rx="3"/>
+        <rect x="310" y="0" width="130" height="52" rx="3"/><rect x="450" y="0" width="130" height="52" rx="3"/>
+        <rect x="590" y="0" width="130" height="52" rx="3"/><rect x="730" y="0" width="130" height="52" rx="3"/>
+        <rect x="870" y="0" width="130" height="52" rx="3"/><rect x="1010" y="0" width="130" height="52" rx="3"/>
+        <rect x="1150" y="0" width="130" height="52" rx="3"/><rect x="1290" y="0" width="130" height="52" rx="3"/>
+        <line x1="30" y1="26" x2="1420" y2="26"/>
+      </g>
+      <!-- row 3 (closest, larger) -->
+      <g transform="translate(0,690)">
+        <rect x="-20" y="0" width="190" height="80" rx="4"/><rect x="170" y="0" width="190" height="80" rx="4"/>
+        <rect x="360" y="0" width="190" height="80" rx="4"/><rect x="550" y="0" width="190" height="80" rx="4"/>
+        <rect x="740" y="0" width="190" height="80" rx="4"/><rect x="930" y="0" width="190" height="80" rx="4"/>
+        <rect x="1120" y="0" width="190" height="80" rx="4"/><rect x="1310" y="0" width="190" height="80" rx="4"/>
+        <line x1="-20" y1="40" x2="1500" y2="40"/>
+        <line x1="75" y1="0" x2="75" y2="80"/><line x1="265" y1="0" x2="265" y2="80"/><line x1="455" y1="0" x2="455" y2="80"/>
+        <line x1="645" y1="0" x2="645" y2="80"/><line x1="835" y1="0" x2="835" y2="80"/><line x1="1025" y1="0" x2="1025" y2="80"/>
+        <line x1="1215" y1="0" x2="1215" y2="80"/>
+      </g>
+    </g>
+    <!-- transmission pylons -->
+    <g stroke="#bfe6fb" stroke-width="1" fill="none" opacity="0.5">
+      <path d="M 1180 420 L 1160 560 M 1220 420 L 1240 560 M 1160 460 L 1240 460 M 1170 500 L 1230 500 M 1180 420 L 1220 420"/>
+      <path d="M 260 380 L 245 500 M 290 380 L 305 500 M 245 415 L 305 415 M 250 450 L 300 450 M 260 380 L 290 380"/>
+    </g>
+    <!-- glint sweep -->
+    <g clip-path="url(#glintClip)">
+      <rect class="glint" x="-200" y="470" width="260" height="440" fill="#ffc93c" opacity="0.35" transform="skewX(-18)"/>
+    </g>
+  </svg>
+
+  <!-- STEP 0: ROLE SELECT -->
+  <div class="login-card" id="role-select-card">
+    <div class="brand-mark">
+      <div class="sun-badge"><div class="core"></div></div>
+      <div class="brand-name">SunCraft <span>Project</span></div>
+      <div class="brand-sub">Sign in as</div>
+    </div>
+    <div class="role-btn-col">
+      <button type="button" class="role-btn" id="role-md-btn">
+        <span class="role-ic">🧭</span>
+        <span><span class="role-t">Managing Director</span><span class="role-s">PIN + Google sign-in</span></span>
+      </button>
+      <button type="button" class="role-btn" id="role-team-btn">
+        <span class="role-ic">👷</span>
+        <span><span class="role-t">Team Member</span><span class="role-s">Department + PIN</span></span>
+      </button>
+    </div>
+    <div class="login-footnote">SunCraft Energy Pvt Ltd &middot; ISO 9001:2015</div>
+  </div>
+
+  <!-- STEP 1 (MD): PIN -->
+  <div class="login-card" id="md-pin-card" style="display:none;">
+    <div class="brand-mark">
+      <div class="sun-badge"><div class="core"></div></div>
+      <div class="brand-name">SunCraft <span>Project</span></div>
+      <div class="brand-sub">MD Console · Step 1 of 2</div>
+    </div>
+    <div class="login-error" id="md-pin-error">Incorrect PIN. Please try again.</div>
+    <div class="tc-locked-msg" id="md-pin-locked" style="display:none;">Too many attempts. Locked for 15 min.</div>
+    <form id="md-pin-form" autocomplete="off">
+      <div class="field">
+        <label for="md-pin-input">Your MD PIN</label>
+        <input type="password" id="md-pin-input" maxlength="4" inputmode="numeric" placeholder="••••" required autofocus />
+      </div>
+      <button type="submit" class="btn-primary">Continue</button>
+    </form>
+    <div class="console-switch"><a href="#" onclick="showRoleSelect(); return false;">← Back</a></div>
+  </div>
+
+  <!-- STEP 2 (MD): GOOGLE -->
+  <div class="login-card" id="md-google-card" style="display:none;">
+    <div class="brand-mark">
+      <div class="sun-badge"><div class="core"></div></div>
+      <div class="brand-name">SunCraft <span>Project</span></div>
+      <div class="brand-sub">MD Console · Step 2 of 2</div>
+    </div>
+    <p style="font-size:12.5px; color:var(--sky-pale); text-align:center; margin-bottom:16px; line-height:1.5;">
+      This project's Google Drive connects through one fixed account only. Team members never sign into Google directly — their uploads reach this same Drive only through the app.
+    </p>
+    <div class="login-error" id="md-google-error">This isn't the project's connected account. Drive will not be connected — sign in with suncraft.energy.1978@gmail.com.</div>
+    <div class="tc-note" id="md-google-loading" style="display:none;">Waiting for Google sign-in…</div>
+    <button type="button" class="btn-google" id="md-google-btn" style="width:100%;">
+      <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34.5 5.5 29.6 3.5 24 3.5 12.7 3.5 3.5 12.7 3.5 24S12.7 44.5 24 44.5 44.5 35.3 44.5 24c0-1.2-.1-2.4-.9-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.6 15.9 18.9 13.5 24 13.5c3.1 0 5.8 1.1 8 3l6-6C34.5 5.5 29.6 3.5 24 3.5c-7.7 0-14.4 4.4-17.7 11.2z"/><path fill="#4CAF50" d="M24 44.5c5.5 0 10.4-1.9 14.1-5.1l-6.5-5.5c-2.1 1.5-4.8 2.4-7.6 2.4-5.3 0-9.7-3.4-11.3-8.1l-6.6 5.1C9.6 40.1 16.3 44.5 24 44.5z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.7l6.5 5.5C41.5 35.9 44.5 30.4 44.5 24c0-1.2-.1-2.4-.9-3.5z"/></svg>
+      Continue with Google
+    </button>
+    <div class="login-footnote">Auto sign-out after 30 min idle</div>
+    <div class="console-switch"><a href="#" onclick="showRoleSelect(); return false;">← Back</a></div>
+  </div>
+</div>
+
+<!-- ================= TEAM LOGIN VIEW ================= -->
+<div id="team-login-view">
+  <div class="tc-login-card">
+    <div class="brand-mark">
+      <div class="sun-badge"><div class="core"></div></div>
+      <div class="brand-name">SunCraft <span>Project</span></div>
+      <div class="brand-sub">Team Console</div>
+    </div>
+
+    <div class="tc-error" id="tc-error">Incorrect PIN. Please try again.</div>
+    <div class="tc-note" id="tc-note"></div>
+    <div class="tc-locked-msg" id="tc-locked-msg">Too many attempts. This PIN is locked — contact your MD to reset it.</div>
+
+    <form id="team-login-form" autocomplete="off">
+      <div class="field">
+        <label for="tc-department">Department</label>
+        <select id="tc-department" class="select-input"></select>
+      </div>
+      <div class="field">
+        <label for="tc-pin">4-digit PIN</label>
+        <input type="password" id="tc-pin" maxlength="4" inputmode="numeric" placeholder="••••" required />
+      </div>
+      <button type="submit" class="btn-primary">Sign in</button>
+    </form>
+
+    <div class="login-footnote">Your name is identified automatically by your PIN &middot; 5 failed attempts locks it for 15 min</div>
+    <div class="console-switch"><a href="#" onclick="showRoleSelect(); return false;">← Back</a></div>
+  </div>
+</div>
+
+<!-- ================= TEAM APP VIEW ================= -->
+<div id="team-app-view">
+  <div class="tc-topbar">
+    <div class="tc-topbar-left">
+      <div class="sun-badge"><div class="core"></div></div>
+      <div>
+        <div class="tc-welcome">Hi, <span id="tc-member-name">—</span></div>
+        <div class="tc-role-chip" id="tc-member-role">—</div>
+      </div>
+    </div>
+    <button class="logout-btn" id="tc-logout-btn">Sign out</button>
+  </div>
+
+  <div class="tc-main">
+    <div class="tc-summary-strip">
+      <div class="tc-summary-card"><div class="n" id="tc-count-total">0</div><div class="l">Assigned</div></div>
+      <div class="tc-summary-card"><div class="n" style="color:var(--yellow);" id="tc-count-pending">0</div><div class="l">To submit</div></div>
+      <div class="tc-summary-card"><div class="n" style="color:var(--green);" id="tc-count-approved">0</div><div class="l">Approved</div></div>
+    </div>
+
+    <div class="section-head">
+      <h2>Assignment Dashboard</h2>
+      <button class="refresh-btn" onclick="refreshTeamDashboard(this)" title="Refresh">↻</button>
+    </div>
+
+    <div id="tc-cards-wrap">
+      <div class="tc-card-grid" id="tc-card-grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= TEAM TASK DETAIL MODAL ================= -->
+<div class="mini-modal-overlay" id="tc-detail-overlay"></div>
+<div class="mini-modal" id="tc-detail-modal" style="max-width:480px;">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
+    <div>
+      <div style="font-size:10.5px; color:var(--text-lo); font-family:var(--font-mono); text-transform:uppercase;" id="tc-d-proj">Project · Stage</div>
+      <h3 id="tc-d-title" style="font-family:var(--font-display); font-size:17px; margin-top:4px;">Task title</h3>
+    </div>
+    <button id="tc-d-close" style="background:none; border:none; color:var(--text-lo); font-size:20px; flex-shrink:0;">&times;</button>
+  </div>
+  <div style="margin-top:10px;"><span class="status-tag" id="tc-d-status"><span class="dot"></span><span id="tc-d-status-text">Pending</span></span></div>
+
+  <div class="tc-detail-body">
+    <div class="k">Description</div>
+    <p id="tc-d-desc" style="font-size:13px; color:var(--text-hi); line-height:1.5;">—</p>
+
+    <div class="k">Your notes / remarks</div>
+    <textarea id="tc-d-notes" rows="3" style="width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(191,230,251,0.18); background:rgba(6,26,43,0.55); color:var(--text-hi); font-size:13px; font-family:var(--font-body); resize:vertical;" placeholder="Add a note for the MD..."></textarea>
+
+    <div class="k">Attachments</div>
+    <div class="tc-file-list" id="tc-d-files"></div>
+    <div class="tc-attach-row" id="tc-d-attach-row">
+      <input type="text" id="tc-d-new-file" class="select-input" placeholder="e.g. Vendor_Quote_Final.pdf" />
+      <button class="btn-ghost" id="tc-d-attach-btn">📎 Attach</button>
+    </div>
+
+    <p id="tc-d-locked-note" style="display:none; font-size:11.5px; color:var(--text-lo); margin-top:14px;">Submitted — you can no longer edit this item. Contact your MD if changes are needed.</p>
+  </div>
+
+  <div class="modal-actions" style="margin-top:20px;">
+    <button class="btn-cancel" id="tc-d-cancel" style="flex:1;">Close</button>
+    <button class="btn-primary" id="tc-d-send" style="flex:1.2;">Send to MD</button>
+  </div>
+</div>
+
+<!-- ================= APP VIEW ================= -->
+<div id="app-view">
+  <div class="app-bg-tex"></div>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="sun-badge"><div class="core"></div></div>
+        <div class="bn">SunCraft <span>Project</span></div>
+      </div>
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-view="dashboard" onclick="switchView('dashboard')">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
+          <span class="nav-label">Dashboard</span>
+        </button>
+        <button class="nav-item" data-view="project" onclick="switchView('project')">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg></span>
+          <span class="nav-label">Project Details</span>
+        </button>
+        <button class="nav-item" data-view="team" onclick="switchView('team')">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M2 20c0-3.3 3.1-6 7-6s7 2.7 7 6"/><circle cx="17.5" cy="8.5" r="2.3"/><path d="M16.3 14.3c2.7.5 4.7 2.5 4.7 5.7"/></svg></span>
+          <span class="nav-label">Team Management</span>
+        </button>
+        <button class="nav-item" data-view="settings" onclick="switchView('settings')">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a7.97 7.97 0 0 0 0-2l2-1.5-2-3.4-2.4 1a8 8 0 0 0-1.7-1L15 3h-4l-.3 2.5a8 8 0 0 0-1.7 1l-2.4-1-2 3.4L6.6 11a7.97 7.97 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a8 8 0 0 0 1.7 1L11 21h4l.3-2.5a8 8 0 0 0 1.7-1l2.4 1 2-3.4-2-1.5z"/></svg></span>
+          <span class="nav-label">Settings</span>
+        </button>
+        <button class="nav-item" data-view="reports" onclick="switchView('reports')">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M2 20h20"/></svg></span>
+          <span class="nav-label">Reports Corner</span>
+        </button>
+      </nav>
+      <div class="sidebar-foot">SunCraft Energy Pvt Ltd<br/>ISO 9001:2015</div>
+    </aside>
+
+    <div class="app-content">
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="topbar-left">
+        <div>
+          <div class="breadcrumb" id="breadcrumb"><b onclick="goDashboard()">All Projects</b></div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="storage-meter">
+          <div class="label"><span>🔗 Google Drive</span><span>1.4 GB / 15 GB</span></div>
+          <div class="storage-bar"><div class="storage-bar-fill" style="width:9%;"></div></div>
+        </div>
+        <div class="md-chip">
+          <div class="md-avatar">RG</div>
+          <div>
+            <div class="nm">Rohan Ghosh</div>
+            <div class="rl">Managing Director</div>
+          </div>
+        </div>
+        <button class="logout-btn" id="logout-btn">Sign out</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- LEVEL 1: DASHBOARD -->
+    <div id="dashboard-view">
+      <div class="stat-strip">
+        <div class="stat-card stat-total"><div class="num" data-count="6">0</div><div class="lbl">Total Projects</div></div>
+        <div class="stat-card stat-red"><div class="num" data-count="9">0</div><div class="lbl">Pending (Red)</div></div>
+        <div class="stat-card stat-yellow"><div class="num" data-count="5">0</div><div class="lbl">Awaiting Review</div></div>
+        <div class="stat-card stat-green"><div class="num" data-count="14">0</div><div class="lbl">Approved (Green)</div></div>
+      </div>
+
+      <div class="section-head">
+        <h2>All Projects</h2>
+        <div class="section-actions">
+          <button class="refresh-btn" onclick="refreshDashboard(this)" title="Refresh">↻</button>
+          <button class="btn-ghost" id="add-department-btn">+ Add Department</button>
+          <button class="btn-yellow" id="new-project-btn">+ New Project</button>
+        </div>
+      </div>
+
+      <div class="project-grid" id="project-grid"></div>
+    </div>
+
+    <!-- PROJECT DETAILS (stage-wise) -->
+    <div id="project-view" style="display:none;">
+      <div class="section-head" style="margin-bottom:18px;">
+        <h2>Project Details</h2>
+        <button class="refresh-btn" onclick="refreshProjectDetails(this)" title="Refresh">↻</button>
+      </div>
+      <div class="field" style="max-width:360px;">
+        <label for="pd-project-select">Select project</label>
+        <select id="pd-project-select" class="select-input" onchange="onProjectSelect(this.value)">
+          <option value="">— Choose a project —</option>
+        </select>
+      </div>
+
+      <div id="project-empty-state" style="text-align:center; padding:60px 20px;">
+        <div style="font-size:34px; margin-bottom:10px;">📁</div>
+        <h2 style="font-family:var(--font-display); font-size:16px; margin-bottom:8px;">No project selected</h2>
+        <p style="color:var(--text-lo); font-size:13px;">Choose a project above to see its Tender, Design, Procurement, Execution and Commissioning status.</p>
+      </div>
+
+      <div id="project-view-content" style="display:none;">
+        <!-- STAGES OVERVIEW -->
+        <div class="section-head">
+          <h2>Project Stages & Execution Tracking</h2>
+          <p style="margin:8px 0 0; color:var(--text-lo); font-size:13px;">Track progress across Tender, Design, Procurement, Execution, and Commissioning phases</p>
+        </div>
+        <div class="table-toolbar" style="margin-top:10px;">
+          <div class="storage-meter" style="min-width:240px;">
+            <div class="label"><span>🔗 Google Drive folder</span><span id="proj-storage-label">210 MB used</span></div>
+            <div class="storage-bar"><div class="storage-bar-fill" style="width:14%;"></div></div>
+          </div>
+          <div class="section-actions">
+            <button class="btn-ghost">Export Excel</button>
+            <button class="btn-ghost">Export PDF</button>
+          </div>
+        </div>
+        <div class="stages-grid" id="stages-grid">
+          <!-- Populated by JavaScript -->
+        </div>
+      </div>
+    </div>
+
+    <!-- TEAM MANAGEMENT -->
+    <div id="team-view" style="display:none;">
+      <div class="section-head">
+        <h2>Team Management</h2>
+        <div class="section-actions">
+          <button class="refresh-btn" onclick="refreshTeamView(this)" title="Refresh">↻</button>
+          <button class="btn-yellow" id="add-member-btn">+ Add Member</button>
+        </div>
+      </div>
+
+      <div class="dept-panel" style="margin-bottom:20px; border-color:rgba(255,201,60,0.3); background:rgba(255,201,60,0.05);">
+        <h3>🧭 MD Login PIN</h3>
+        <div class="count">Used at the "Sign in as MD" step · visible to you only</div>
+        <div class="member-row">
+          <div class="member-avatar">RG</div>
+          <div class="member-info">
+            <div class="nm">Rohan Ghosh</div>
+            <div class="desig">Managing Director</div>
+          </div>
+          <div class="member-actions">
+            <span class="member-pin" id="md-pin-display">9042</span>
+            <button class="member-reset" id="md-pin-change-btn">Change PIN</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="dept-grid" id="dept-grid"></div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="settings-view" style="display:none;">
+      <div class="section-head"><h2>Settings</h2><button class="refresh-btn" onclick="refreshSettings(this)" title="Refresh">↻</button></div>
+      <div class="settings-grid">
+        <div class="settings-card">
+          <h3>👤 Account</h3>
+          <div class="settings-row"><span class="k">Name</span><span class="v">Rohan Ghosh</span></div>
+          <div class="settings-row"><span class="k">Email</span><span class="v">md@suncraftenergy.com</span></div>
+          <div class="settings-row"><span class="k">Role</span><span class="v">Managing Director</span></div>
+          <div class="settings-row"><button class="btn-ghost" style="width:100%; justify-content:center;">Change password</button></div>
+        </div>
+        <div class="settings-card">
+          <h3>🔒 Security</h3>
+          <div class="settings-row"><span class="k">Auto sign-out</span><span class="v">30 min idle</span></div>
+          <div class="settings-row"><span class="k">PIN lockout</span><span class="v">5 attempts → 15 min</span></div>
+          <div class="settings-row"><span class="k">2FA on login</span><div class="toggle" onclick="this.classList.toggle('on')"><div class="knob"></div></div></div>
+        </div>
+        <div class="settings-card">
+          <h3>🔗 Connected Storage</h3>
+          <div class="settings-row"><span class="k"><span class="status-dot-row"><span class="dot"></span>Google Drive</span></span><span class="v" id="settings-connected-email">suncraft.energy.1978@gmail.com</span></div>
+          <div class="settings-row"><span class="k"><span class="status-dot-row"><span class="dot"></span>Supabase</span></span><span class="v">Auth + metadata</span></div>
+          <p style="font-size:11px; color:var(--text-lo); margin:10px 0 0; line-height:1.5;">This is the only account this project connects with. Team members never sign into Google — their uploads reach this same Drive only through the app.</p>
+          <div class="settings-row"><button class="btn-ghost" style="width:100%; justify-content:center;">Manage connection</button></div>
+        </div>
+        <div class="settings-card">
+          <h3>🔔 Notifications</h3>
+          <div class="settings-row"><span class="k">Email on new upload</span><div class="toggle on" onclick="this.classList.toggle('on')"><div class="knob"></div></div></div>
+          <div class="settings-row"><span class="k">Email on approval needed</span><div class="toggle on" onclick="this.classList.toggle('on')"><div class="knob"></div></div></div>
+          <div class="settings-row"><span class="k">Weekly summary</span><div class="toggle" onclick="this.classList.toggle('on')"><div class="knob"></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- REPORTS CORNER -->
+    <div id="reports-view" style="display:none;">
+      <div class="section-head"><h2>Reports Corner</h2><button class="refresh-btn" onclick="refreshReports(this)" title="Refresh">↻</button></div>
+      <p class="reports-subtitle">Every action is timestamped by the server automatically, 24/7 — not just during office hours (10:00 AM – 6:30 PM). Visible to MD only.</p>
+
+      <div class="report-block">
+        <div class="report-block-head">
+          <h3>Project Exports</h3>
+          <div class="section-actions">
+            <select class="report-select" id="report-project-select"></select>
+            <button class="btn-ghost">Export Excel</button>
+            <button class="btn-ghost">Export PDF</button>
+          </div>
+        </div>
+        <p style="font-size:12px; color:var(--text-lo);">Name, department, member, status, upload count and timestamps for the selected project, with SunCraft's ISO 9001:2015 letterhead.</p>
+      </div>
+
+      <div class="report-block">
+        <div class="report-block-head">
+          <h3>Daily Progress Report</h3>
+          <button class="btn-yellow" id="export-activity-btn">Export as PDF</button>
+        </div>
+        <div id="activity-log-list"></div>
+      </div>
+    </div>
+
+  </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= ASSIGN TASK MODAL ================= -->
+<div class="overlay" id="overlay"></div>
+<div class="modal" id="assign-modal">
+  <h3>Assign new task</h3>
+  <div class="field"><label>Task name</label><input type="text" id="m-task-name" placeholder="e.g. Vendor quotation review" /></div>
+  <div class="field"><label>Department</label>
+    <select id="m-dept" style="width:100%; padding:12px 14px; border-radius:10px; border:1px solid rgba(191,230,251,0.18); background:rgba(6,26,43,0.55); color:#eef6fc; font-size:14px;">
+      <option>Procurement</option><option>Design</option><option>Finance</option><option>Others</option>
+    </select>
+  </div>
+  <div class="field"><label>Assign to</label>
+    <select id="m-assignee" style="width:100%; padding:12px 14px; border-radius:10px; border:1px solid rgba(191,230,251,0.18); background:rgba(6,26,43,0.55); color:#eef6fc; font-size:14px;">
+      <option>Ankit Sharma</option><option>Priya Nair</option><option>Devika Rao</option>
+    </select>
+  </div>
+  <div class="field"><label>Task details</label><input type="text" id="m-details" placeholder="Short description of the task" /></div>
+  <div class="field"><label>Due date</label><input type="date" id="m-due" /></div>
+  <div class="modal-actions">
+    <button class="btn-cancel" id="modal-cancel">Cancel</button>
+    <button class="btn-primary" id="modal-save">Create task</button>
+  </div>
+</div>
+
+<!-- ================= DETAILED CHECKLIST MODAL ================= -->
+<div class="checklist-modal" id="checklist-modal">
+  <div class="checklist-content">
+    <div class="checklist-header">
+      <div class="checklist-title-section">
+        <h2 id="cl-stage-name">Execution — NTPC Rajgarh 50MW</h2>
+        <p id="cl-stage-desc">Site civil, mechanical and electrical installation progress.</p>
+        <div class="checklist-stats" id="cl-stats">
+          <!-- Populated by JavaScript -->
+        </div>
+      </div>
+      <button class="checklist-close" id="cl-close">&times;</button>
+    </div>
+
+    <div class="sheet-sum-row">
+      <span class="lbl">Weight sheet total (must equal 100%)</span>
+      <span class="sheet-sum-badge" id="cl-sheet-sum">100%</span>
+    </div>
+
+    <div class="checklist-items" id="cl-items">
+      <!-- Populated by JavaScript -->
+    </div>
+
+    <button class="add-item-btn" id="cl-add-item-btn">+ Add new item</button>
+    <div class="add-item-form" id="cl-add-item-form" style="display:none;">
+      <div class="full"><input type="text" id="ai-name" placeholder="Item name (e.g. Bid Submission)" /></div>
+      <div class="full"><input type="text" id="ai-desc" placeholder="Short description" /></div>
+      <div>
+        <select id="ai-assignee"></select>
+      </div>
+      <div>
+        <input type="number" id="ai-weight" placeholder="Weight %" min="0" max="100" />
+      </div>
+      <div class="actions">
+        <button class="btn-cancel" id="ai-cancel" style="padding:8px 14px;">Cancel</button>
+        <button class="btn-primary" id="ai-add" style="padding:8px 16px; width:auto;">Add item</button>
+      </div>
+    </div>
+
+    <div class="checklist-progress">
+      <div class="progress-bar">
+        <div class="progress-fill" id="cl-progress-fill" style="width:57%;"></div>
+      </div>
+      <div class="progress-label" id="cl-progress-label">All checklist items must be marked done (100% weighted) before approval.</div>
+    </div>
+
+    <div class="checklist-actions">
+      <button class="btn-action btn-close-modal" id="cl-close-btn">Close</button>
+      <button class="btn-action btn-save" id="cl-save-btn">Save weight sheet</button>
+      <button class="btn-action btn-approve" id="cl-approve-btn">✓ Approve stage</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= FILE PREVIEW MINI-MODAL ================= -->
+<div class="mini-modal-overlay" id="file-preview-overlay"></div>
+<div class="mini-modal" id="file-preview-modal">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;">
+    <div>
+      <div style="font-size:11px; color:var(--text-lo); text-transform:uppercase; letter-spacing:.4px; margin-bottom:4px;">File preview</div>
+      <h3 id="fp-filename" style="font-family:var(--font-display); font-size:16px; word-break:break-all;">filename.pdf</h3>
+    </div>
+    <button id="fp-close" style="background:none; border:none; color:var(--text-lo); font-size:20px; flex-shrink:0;">&times;</button>
+  </div>
+  <div style="background:rgba(191,230,251,0.05); border:1px dashed rgba(191,230,251,0.2); border-radius:12px; padding:36px 20px; text-align:center; margin-bottom:16px;">
+    <div id="fp-icon" style="font-size:38px; margin-bottom:10px;">📄</div>
+    <div style="font-size:11.5px; color:var(--text-lo);">Preview not available in this prototype — this will render inline once Google Drive is connected.</div>
+  </div>
+  <div style="font-size:12px; color:var(--text-lo); margin-bottom:18px;">
+    Uploaded by <span id="fp-uploader" style="color:var(--sky-pale); font-weight:600;">—</span> for <span id="fp-item" style="color:var(--sky-pale); font-weight:600;">—</span>
+  </div>
+  <div style="display:flex; gap:10px;">
+    <button class="btn-cancel" id="fp-close-btn" style="flex:1;">Close</button>
+    <button class="btn-download" id="fp-download-btn" style="flex:1;">⬇ Download</button>
+  </div>
+</div>
+
+<!-- ================= RESCHEDULE MINI-MODAL ================= -->
+<div class="mini-modal-overlay" id="reschedule-overlay"></div>
+<div class="mini-modal" id="reschedule-modal">
+  <h3 style="font-family:var(--font-display); font-size:16px; margin-bottom:6px;">Reschedule this item</h3>
+  <p id="rs-item-name" style="font-size:12.5px; color:var(--text-lo); margin-bottom:16px;">Item name</p>
+  <div class="field">
+    <label>Reason / new instructions for the team</label>
+    <input type="text" id="rs-reason" placeholder="e.g. Please revise vendor list, missing two quotations" />
+  </div>
+  <p style="font-size:11.5px; color:var(--text-lo); margin:10px 0 20px;">This resets the item's progress to 0% and marks it Red again. Previously submitted files stay on record.</p>
+  <div class="modal-actions">
+    <button class="btn-cancel" id="rs-cancel" style="flex:1;">Cancel</button>
+    <button id="rs-confirm" style="flex:1; background:linear-gradient(180deg,var(--red),#c73b4a); border:none; color:#fff; font-weight:700; border-radius:9px; font-size:13px; padding:11px;">↺ Confirm reschedule</button>
+  </div>
+</div>
+
+<!-- ================= ADD MEMBER MINI-MODAL ================= -->
+<div class="mini-modal-overlay" id="am-overlay"></div>
+<div class="mini-modal" id="am-modal">
+  <h3 style="font-family:var(--font-display); font-size:16px; margin-bottom:16px;">Add team member</h3>
+  <div class="field"><label>Name of employee</label><input type="text" id="am-name" placeholder="e.g. Neha Kulkarni" /></div>
+  <div class="field"><label>Designation <span style="color:var(--text-lo); font-weight:400;">(internal reference only, not shown elsewhere)</span></label><input type="text" id="am-designation" placeholder="e.g. Procurement Executive" /></div>
+  <div class="field"><label>Department</label>
+    <select id="am-department" class="select-input"></select>
+  </div>
+  <div class="field">
+    <label>4-digit PIN <span style="color:var(--text-lo); font-weight:400;">(set by you, share it with the employee)</span></label>
+    <div style="display:flex; gap:8px;">
+      <input type="text" id="am-pin" maxlength="4" inputmode="numeric" placeholder="e.g. 4821" style="flex:1;" />
+      <button class="btn-ghost" id="am-generate-pin" style="white-space:nowrap;">🎲 Generate</button>
+    </div>
+  </div>
+  <div class="modal-actions" style="margin-top:18px;">
+    <button class="btn-cancel" id="am-cancel" style="flex:1;">Cancel</button>
+    <button class="btn-primary" id="am-add" style="flex:1;">Add member</button>
+  </div>
+</div>
+
+<!-- ================= RESET PIN MINI-MODAL ================= -->
+<div class="mini-modal-overlay" id="rp-overlay"></div>
+<div class="mini-modal" id="rp-modal">
+  <h3 style="font-family:var(--font-display); font-size:16px; margin-bottom:6px;">Reset PIN</h3>
+  <p id="rp-member-name" style="font-size:12.5px; color:var(--text-lo); margin-bottom:16px;">Member name</p>
+  <div class="field">
+    <label>New 4-digit PIN</label>
+    <div style="display:flex; gap:8px;">
+      <input type="text" id="rp-pin" maxlength="4" inputmode="numeric" style="flex:1;" />
+      <button class="btn-ghost" id="rp-generate-pin" style="white-space:nowrap;">🎲 Generate</button>
+    </div>
+  </div>
+  <p style="font-size:11.5px; color:var(--text-lo); margin:10px 0 18px;">This also clears any active lockout for this employee.</p>
+  <div class="modal-actions">
+    <button class="btn-cancel" id="rp-cancel" style="flex:1;">Cancel</button>
+    <button class="btn-primary" id="rp-confirm" style="flex:1;">Set new PIN</button>
+  </div>
+</div>
+
+<!-- ================= ADD DEPARTMENT MINI-MODAL ================= -->
+<div class="mini-modal-overlay" id="ad-overlay"></div>
+<div class="mini-modal" id="ad-modal">
+  <h3 style="font-family:var(--font-display); font-size:16px; margin-bottom:6px;">Add new department</h3>
+  <p style="font-size:12.5px; color:var(--text-lo); margin-bottom:16px;">Creates an empty department. Add team members to it from Team Management.</p>
+  <div class="field"><label>Department name</label><input type="text" id="ad-name" placeholder="e.g. Quality Assurance" /></div>
+  <div class="modal-actions" style="margin-top:18px;">
+    <button class="btn-cancel" id="ad-cancel" style="flex:1;">Cancel</button>
+    <button class="btn-primary" id="ad-add" style="flex:1;">Add department</button>
+  </div>
+</div>
+
+<!-- ================= TASK DETAIL DRAWER ================= -->
+<div class="drawer" id="task-drawer">
+  <div class="drawer-head">
+    <div>
+      <h3 id="d-task-name">Task name</h3>
+      <div class="mono-cell" id="d-task-id">TASK-0000</div>
+    </div>
+    <button class="drawer-close" id="drawer-close">&times;</button>
+  </div>
+  <div class="drawer-status"><span class="status-tag" id="d-status"><span class="dot"></span><span id="d-status-text">Pending</span></span></div>
+  <div class="drawer-grid">
+    <div class="drawer-field"><div class="k">Department</div><div class="v" id="d-dept">—</div></div>
+    <div class="drawer-field"><div class="k">Assigned to</div><div class="v" id="d-assignee">—</div></div>
+    <div class="drawer-field"><div class="k">Due date</div><div class="v" id="d-due">—</div></div>
+    <div class="drawer-field"><div class="k">Uploaded on</div><div class="v mono" id="d-uploaded">—</div></div>
+  </div>
+  <div class="drawer-field" style="margin-bottom:8px;"><div class="k">Task details</div></div>
+  <div class="drawer-notes" id="d-details">—</div>
+  <div class="drawer-field" style="margin-bottom:8px;"><div class="k">Team notes / remarks</div></div>
+  <div class="drawer-notes" id="d-notes">—</div>
+  <div class="file-chip" id="d-file-chip">
+    <span style="font-size:16px;">📎</span>
+    <span class="fname" id="d-file-name">—</span>
+  </div>
+  <div class="drawer-actions">
+    <button class="btn-download">⬇ Download from Drive</button>
+    <button class="btn-approve" id="d-approve-btn">✓ Approve &amp; mark Green</button>
+    <button class="btn-clear">Remove from Drive</button>
+  </div>
+</div>
+
+<div class="toast" id="toast">Saved</div>
+
+<script>
+  // ---------------- MOCK DATA ----------------
+  const projects = [
+    { id:'p1', name:'NTPC Rajgarh 50MW', client:'NTPC Renewable Energy', red:3, yellow:2, green:5, updated:'2h ago' },
+    { id:'p2', name:'Adani Kutch Phase-2', client:'Adani Green Energy', red:1, yellow:1, green:6, updated:'5h ago' },
+    { id:'p3', name:'Tata Power Rooftop — Pune', client:'Tata Power Solar', red:2, yellow:0, green:1, updated:'1d ago' },
+    { id:'p4', name:'ReNew C&I Bhilwara', client:'ReNew Power', red:1, yellow:1, green:1, updated:'3d ago' },
+    { id:'p5', name:'Azure Barmer 100MW', client:'Azure Power', red:1, yellow:1, green:1, updated:'6d ago' },
+    { id:'p6', name:'O2 Power Kutch Wind-Solar', client:'O2 Power', red:1, yellow:0, green:0, updated:'2w ago' },
+  ];
+
+  const tasks = [
+    { id:'TASK-0114', name:'Module datasheet — Longi 550W', dept:'Procurement', assignee:'Ankit Sharma', details:'Collect and upload latest module datasheet with efficiency & warranty terms from Longi for board review.', due:'18 Aug 2026', uploaded:'—', status:'red', notes:'', files: [''] },
+    { id:'TASK-0113', name:'Single line diagram — Block C', dept:'Design', assignee:'Priya Nair', details:'Prepare SLD for Block C covering inverter-to-transformer routing, per IS 1651 norms.', due:'15 Aug 2026', uploaded:'13 Aug, 4:02 PM', status:'yellow', notes:'SLD attached — please check transformer rating on sheet 2, awaiting your confirmation before we lock it.', files: ['Block-C_SLD_rev3.pdf'] },
+    { id:'TASK-0112', name:'Q2 cost variance report', dept:'Finance', assignee:'Devika Rao', details:'Reconcile Q2 actuals vs BOQ estimate, flag any line item over 8% variance.', due:'10 Aug 2026', uploaded:'10 Aug, 11:20 AM', status:'green', notes:'Variance report attached. Cabling cost up 6.2%, rest within tolerance.', files: ['Q2_Cost_Variance.xlsx'] },
+    { id:'TASK-0111', name:'Land lease renewal — Plot 14', dept:'Others', assignee:'Ankit Sharma', details:'Coordinate with landowner and legal for lease renewal before expiry on 30 Sep.', due:'20 Aug 2026', uploaded:'—', status:'red', notes:'', files: [''] },
+    { id:'TASK-0110', name:'Vendor quotation — HT cables', dept:'Procurement', assignee:'Priya Nair', details:'Get 3 comparative quotations for HT cable supply, 2km run.', due:'22 Aug 2026', uploaded:'—', status:'red', notes:'', files: [''] },
+    { id:'TASK-0109', name:'Geo-tech soil report review', dept:'Design', assignee:'Devika Rao', details:'Review soil bearing capacity report from geo-tech consultant, confirm pile foundation spec.', due:'09 Aug 2026', uploaded:'09 Aug, 9:14 AM', status:'green', notes:'Reviewed — bearing capacity confirmed adequate for driven pile design.', files: ['Geotech_Report_Final.pdf'] },
+  ];
+
+  let currentProjectId = null;
+  let currentTaskId = null;
+  let currentView = 'dashboard';
+
+  const teamMembers = {
+    Procurement: [ {name:'Ankit Sharma', designation:'Procurement Executive', pin:'4821', status:'ok'}, {name:'Komal Verma', designation:'Procurement Officer', pin:'7392', status:'ok'} ],
+    Design:      [ {name:'Priya Nair', designation:'Design Engineer', pin:'1058', status:'ok'}, {name:'Rahul Dey', designation:'Design Engineer', pin:'6624', status:'locked'} ],
+    Finance:     [ {name:'Devika Rao', designation:'Finance Executive', pin:'3947', status:'ok'}, {name:'Sneha Iyer', designation:'Accounts Officer', pin:'8815', status:'ok'} ],
+    Others:      [ {name:'Manoj Tiwari', designation:'Site Supervisor', pin:'2266', status:'ok'}, {name:'Farhan Sheikh', designation:'Site Coordinator', pin:'5503', status:'ok'} ],
+  };
+
+  const activityLog = [
+    { date:'20 Aug 2026', time:'11:45 AM', actor:'Komal Verma', dept:'Procurement', project:'NTPC Rajgarh 50MW', text:'Uploaded a file and notes for "HT cable vendor quotation".' },
+    { date:'20 Aug 2026', time:'10:12 AM', actor:'Rohan Ghosh (MD)', dept:'—', project:'NTPC Rajgarh 50MW', text:'Approved "Geo-tech soil report review" — status set to Green.' },
+    { date:'19 Aug 2026', time:'6:02 PM', actor:'Priya Nair', dept:'Design', project:'Adani Kutch Phase-2', text:'Added task notes for "Single line diagram — Block C".' },
+    { date:'19 Aug 2026', time:'3:20 PM', actor:'Rohan Ghosh (MD)', dept:'—', project:'Tata Power Rooftop — Pune', text:'Created project and auto-assigned 4 default teams.' },
+    { date:'18 Aug 2026', time:'9:40 AM', actor:'Devika Rao', dept:'Finance', project:'NTPC Rajgarh 50MW', text:'Uploaded "Q2 Cost Variance" report.' },
+  ];
+
+  // ---------------- SUPABASE CLIENT ----------------
+  const SUPABASE_URL = 'https://vtqykngxohxvpqddvfrg.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ0cXlrbmd4b2h4dnBxZGR2ZnJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MjEyNzAsImV4cCI6MjEwMjM5NzI3MH0.FoP4s4-7OjrGOs0Ti8UDpkOn8NeC8pMb58JaBUgyHho';
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // ---------------- LOGIN (role select → MD: PIN + Google / Team: dept + PIN) ----------------
+  const loginView = document.getElementById('login-view');
+  const appView = document.getElementById('app-view');
+  let mdPinFailCount = 0;
+
+  function enterMDConsole(connectedEmail){
+    appView.style.display = 'block';
+    animateCounters();
+    renderProjectGrid();
+    populateProjectDropdown();
+    renderTeamView();
+    renderReportsView();
+    const emailEl = document.getElementById('settings-connected-email');
+    if(emailEl) emailEl.textContent = connectedEmail || 'Connected';
+  }
+
+  function showRoleSelect(){
+    document.getElementById('team-login-view').classList.remove('show');
+    document.getElementById('team-app-view').style.display = 'none';
+    appView.style.display = 'none';
+    loginView.style.display = 'flex';
+    document.getElementById('role-select-card').style.display = 'block';
+    document.getElementById('md-pin-card').style.display = 'none';
+    document.getElementById('md-google-card').style.display = 'none';
+    document.getElementById('md-pin-input').value = '';
+    document.getElementById('md-pin-error').style.display = 'none';
+    document.getElementById('md-pin-locked').style.display = 'none';
+    document.getElementById('md-google-error').style.display = 'none';
+    document.getElementById('md-google-loading').style.display = 'none';
+  }
+
+  document.getElementById('role-md-btn').addEventListener('click', function(){
+    document.getElementById('role-select-card').style.display = 'none';
+    document.getElementById('md-pin-card').style.display = 'block';
+    document.getElementById('md-pin-input').focus();
+  });
+  document.getElementById('role-team-btn').addEventListener('click', function(){
+    showTeamLogin();
+  });
+
+  document.getElementById('md-pin-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+    const entered = document.getElementById('md-pin-input').value.trim();
+    const errEl = document.getElementById('md-pin-error');
+    const lockedEl = document.getElementById('md-pin-locked');
+    errEl.style.display = 'none';
+    lockedEl.style.display = 'none';
+
+    const { data: pinOk, error } = await sb.rpc('verify_md_pin', { input_pin: entered });
+    if(error){
+      errEl.textContent = 'Could not reach the server. Check your connection and try again.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    if(!pinOk){
+      mdPinFailCount++;
+      if(mdPinFailCount >= 5){
+        lockedEl.style.display = 'block';
+      } else {
+        errEl.textContent = `Incorrect PIN. (${5 - mdPinFailCount} attempt${5-mdPinFailCount!==1?'s':''} left)`;
+        errEl.style.display = 'block';
+      }
+      return;
+    }
+    mdPinFailCount = 0;
+    document.getElementById('md-pin-card').style.display = 'none';
+    document.getElementById('md-google-card').style.display = 'block';
+  });
+
+  document.getElementById('md-google-btn').addEventListener('click', async function(){
+    sessionStorage.setItem('sc_login_intent', 'md');
+    document.getElementById('md-google-error').style.display = 'none';
+    document.getElementById('md-google-loading').style.display = 'block';
+    const { error } = await sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: 'https://eclectic-kulfi-f2445a.netlify.app' }
+    });
+    if(error){
+      document.getElementById('md-google-loading').style.display = 'none';
+      document.getElementById('md-google-error').textContent = 'Google sign-in could not start: ' + error.message;
+      document.getElementById('md-google-error').style.display = 'block';
+    }
+    // On success the browser navigates to Google, then back — handled by
+    // the auth-state listener below when the page reloads.
+  });
+
+  // Runs once, on every page load, to catch a return trip from Google OAuth.
+  sb.auth.onAuthStateChange(async (event, session) => {
+    const intent = sessionStorage.getItem('sc_login_intent');
+    if(event !== 'SIGNED_IN' || intent !== 'md' || !session) return;
+
+    document.getElementById('md-google-loading').style.display = 'block';
+    const { data: isMD, error } = await sb.rpc('claim_md_role');
+    sessionStorage.removeItem('sc_login_intent');
+    document.getElementById('md-google-loading').style.display = 'none';
+
+    if(error || !isMD){
+      await sb.auth.signOut();
+      document.getElementById('role-select-card').style.display = 'none';
+      document.getElementById('md-pin-card').style.display = 'none';
+      document.getElementById('md-google-card').style.display = 'block';
+      document.getElementById('md-google-error').style.display = 'block';
+      return;
+    }
+    document.getElementById('md-google-card').style.display = 'none';
+    enterMDConsole(session.user.email);
+  });
+
+  document.getElementById('logout-btn').addEventListener('click', async function(){
+    await sb.auth.signOut();
+    appView.style.display = 'none';
+    showRoleSelect();
+    goDashboard();
+  });
+
+  // ---------------- COUNTERS ----------------
+  function animateCounters(){
+    document.querySelectorAll('.stat-card .num').forEach(el=>{
+      const target = parseInt(el.getAttribute('data-count'),10);
+      let cur = 0;
+      const step = Math.max(1, Math.round(target/30));
+      const iv = setInterval(()=>{
+        cur += step;
+        if(cur >= target){ cur = target; clearInterval(iv); }
+        el.textContent = cur;
+      }, 30);
+    });
+  }
+
+  // ---------------- DASHBOARD (LEVEL 1) ----------------
+  function renderProjectGrid(){
+    const grid = document.getElementById('project-grid');
+    grid.innerHTML = projects.map(p => `
+      <div class="project-card" onclick="openProject('${p.id}')">
+        <div class="pname">${p.name}</div>
+        <div class="pclient">${p.client}</div>
+        <div class="pill-row">
+          <span class="pill pill-red"><span class="pill-dot"></span>${p.red} Red</span>
+          <span class="pill pill-yellow"><span class="pill-dot"></span>${p.yellow} Yellow</span>
+          <span class="pill pill-green"><span class="pill-dot"></span>${p.green} Green</span>
+        </div>
+        <div class="card-foot"><span>${p.red+p.yellow+p.green} tasks total</span><span>Updated ${p.updated}</span></div>
+      </div>
+    `).join('');
+  }
+
+  // ---------------- SIDEBAR NAVIGATION ----------------
+  const VIEW_IDS = { dashboard:'dashboard-view', project:'project-view', team:'team-view', settings:'settings-view', reports:'reports-view' };
+  const VIEW_LABELS = { team:'Team Management', settings:'Settings', reports:'Reports Corner' };
+
+  function switchView(view){
+    currentView = view;
+    Object.values(VIEW_IDS).forEach(id => document.getElementById(id).style.display = 'none');
+    document.getElementById(VIEW_IDS[view]).style.display = 'block';
+
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    const btn = document.querySelector(`.nav-item[data-view="${view}"]`);
+    if(btn) btn.classList.add('active');
+
+    if(view === 'dashboard'){
+      document.getElementById('breadcrumb').innerHTML = `<b onclick="goDashboard()">All Projects</b>`;
+    } else if(view === 'project'){
+      renderProjectDetailsView();
+    } else {
+      document.getElementById('breadcrumb').innerHTML = `<b onclick="goDashboard()">All Projects</b> &nbsp;/&nbsp; ${VIEW_LABELS[view]}`;
+    }
+  }
+
+  function openProject(id){
+    currentProjectId = id;
+    switchView('project');
+  }
+
+  function goDashboard(){
+    currentProjectId = null;
+    switchView('dashboard');
+  }
+
+  // ---------------- PROJECT DETAILS (stage-wise) ----------------
+  function populateProjectDropdown(){
+    const sel = document.getElementById('pd-project-select');
+    sel.innerHTML = '<option value="">— Choose a project —</option>' +
+      projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  }
+
+  function renderProjectDetailsView(){
+    const select = document.getElementById('pd-project-select');
+    if(select) select.value = currentProjectId || '';
+    const empty = document.getElementById('project-empty-state');
+    const content = document.getElementById('project-view-content');
+
+    if(currentProjectId){
+      const p = projects.find(x => x.id === currentProjectId);
+      empty.style.display = 'none';
+      content.style.display = 'block';
+      document.getElementById('breadcrumb').innerHTML = `<b onclick="goDashboard()">All Projects</b> &nbsp;/&nbsp; <b onclick="switchView('project')">Project Details</b> &nbsp;/&nbsp; ${p.name}`;
+      renderStagesGrid(currentProjectId);
+    } else {
+      empty.style.display = 'block';
+      content.style.display = 'none';
+      document.getElementById('breadcrumb').innerHTML = `<b onclick="goDashboard()">All Projects</b> &nbsp;/&nbsp; Project Details`;
+    }
+  }
+
+
+  // ---------------- TEAM MANAGEMENT ----------------
+  function renderTeamView(){
+    const grid = document.getElementById('dept-grid');
+    grid.innerHTML = Object.keys(teamMembers).map(dept => `
+      <div class="dept-panel">
+        <h3>${dept}</h3>
+        <div class="count">${teamMembers[dept].length} member${teamMembers[dept].length!==1?'s':''}</div>
+        ${teamMembers[dept].map((m, idx) => `
+          <div class="member-row">
+            <div class="member-avatar">${initials(m.name)}</div>
+            <div class="member-info">
+              <div class="nm">${escapeHtml(m.name)}</div>
+              <div class="desig">${escapeHtml(m.designation || '—')}</div>
+              <div class="status ${m.status==='ok'?'ok':'locked'}">${m.status==='ok' ? 'PIN active' : 'Locked 15 min'}</div>
+            </div>
+            <div class="member-actions">
+              <span class="member-pin" title="Visible to MD only">${escapeHtml(m.pin || '----')}</span>
+              <button class="member-reset" onclick="openResetPinModal('${dept}', ${idx})">Reset PIN</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `).join('');
+  }
+  function initials(name){
+    return name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  }
+  function generatePin(){
+    return String(Math.floor(1000 + Math.random()*9000));
+  }
+
+  // ---------------- ADD MEMBER ----------------
+  function openAddMemberModal(){
+    const sel = document.getElementById('am-department');
+    sel.innerHTML = Object.keys(teamMembers).map(d => `<option value="${d}">${d}</option>`).join('');
+    document.getElementById('am-name').value = '';
+    document.getElementById('am-designation').value = '';
+    document.getElementById('am-pin').value = generatePin();
+    document.getElementById('am-overlay').classList.add('show');
+    document.getElementById('am-modal').classList.add('show');
+  }
+  function closeAddMemberModal(){
+    document.getElementById('am-overlay').classList.remove('show');
+    document.getElementById('am-modal').classList.remove('show');
+  }
+  document.getElementById('add-member-btn') && document.getElementById('add-member-btn').addEventListener('click', openAddMemberModal);
+  document.getElementById('am-cancel').addEventListener('click', closeAddMemberModal);
+  document.getElementById('am-overlay').addEventListener('click', closeAddMemberModal);
+  document.getElementById('am-generate-pin').addEventListener('click', () => {
+    document.getElementById('am-pin').value = generatePin();
+  });
+  document.getElementById('am-add').addEventListener('click', () => {
+    const name = document.getElementById('am-name').value.trim();
+    const designation = document.getElementById('am-designation').value.trim();
+    const dept = document.getElementById('am-department').value;
+    const pin = document.getElementById('am-pin').value.trim();
+    if(!name){ showToast('Please enter the employee\'s name.'); return; }
+    if(!/^\d{4}$/.test(pin)){ showToast('PIN must be exactly 4 digits.'); return; }
+    teamMembers[dept].push({ name, designation: designation || '—', pin, status: 'ok' });
+    renderTeamView();
+    closeAddMemberModal();
+    showToast(`${name} added to ${dept}. Share PIN ${pin} with them directly.`);
+  });
+
+  // ---------------- RESET PIN ----------------
+  let resetPinTarget = null;
+  function openResetPinModal(dept, idx){
+    resetPinTarget = { dept, idx };
+    const m = teamMembers[dept][idx];
+    document.getElementById('rp-member-name').textContent = `${m.name} — ${dept}`;
+    document.getElementById('rp-pin').value = generatePin();
+    document.getElementById('rp-overlay').classList.add('show');
+    document.getElementById('rp-modal').classList.add('show');
+  }
+  function openMDPinChangeModal(){
+    resetPinTarget = 'MD';
+    document.getElementById('rp-member-name').textContent = 'Rohan Ghosh — Managing Director';
+    document.getElementById('rp-pin').value = generatePin();
+    document.getElementById('rp-overlay').classList.add('show');
+    document.getElementById('rp-modal').classList.add('show');
+  }
+  document.getElementById('md-pin-change-btn').addEventListener('click', openMDPinChangeModal);
+  function closeResetPinModal(){
+    document.getElementById('rp-overlay').classList.remove('show');
+    document.getElementById('rp-modal').classList.remove('show');
+  }
+  document.getElementById('rp-cancel').addEventListener('click', closeResetPinModal);
+  document.getElementById('rp-overlay').addEventListener('click', closeResetPinModal);
+  document.getElementById('rp-generate-pin').addEventListener('click', () => {
+    document.getElementById('rp-pin').value = generatePin();
+  });
+  document.getElementById('rp-confirm').addEventListener('click', () => {
+    const pin = document.getElementById('rp-pin').value.trim();
+    if(!/^\d{4}$/.test(pin)){ showToast('PIN must be exactly 4 digits.'); return; }
+    if(!resetPinTarget) return;
+
+    if(resetPinTarget === 'MD'){
+      mdPin = pin;
+      document.getElementById('md-pin-display').textContent = pin;
+      closeResetPinModal();
+      showToast(`Your MD login PIN is now ${pin}. Keep it confidential.`);
+      return;
+    }
+
+    const m = teamMembers[resetPinTarget.dept][resetPinTarget.idx];
+    m.pin = pin;
+    m.status = 'ok';
+    renderTeamView();
+    closeResetPinModal();
+    showToast(`New PIN ${pin} set for ${m.name} — share it with them directly.`);
+  });
+
+  // ---------------- ADD DEPARTMENT ----------------
+  function openAddDepartmentModal(){
+    document.getElementById('ad-name').value = '';
+    document.getElementById('ad-overlay').classList.add('show');
+    document.getElementById('ad-modal').classList.add('show');
+  }
+  function closeAddDepartmentModal(){
+    document.getElementById('ad-overlay').classList.remove('show');
+    document.getElementById('ad-modal').classList.remove('show');
+  }
+  document.getElementById('add-department-btn').addEventListener('click', openAddDepartmentModal);
+  document.getElementById('ad-cancel').addEventListener('click', closeAddDepartmentModal);
+  document.getElementById('ad-overlay').addEventListener('click', closeAddDepartmentModal);
+  document.getElementById('ad-add').addEventListener('click', () => {
+    const raw = document.getElementById('ad-name').value.trim();
+    if(!raw){ showToast('Please enter a department name.'); return; }
+    const name = raw.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    const exists = Object.keys(teamMembers).some(d => d.toLowerCase() === name.toLowerCase());
+    if(exists){ showToast(`"${name}" already exists as a department.`); return; }
+    teamMembers[name] = [];
+    renderTeamView();
+    closeAddDepartmentModal();
+    showToast(`"${name}" department added. Go to Team Management to add members to it.`);
+  });
+
+  // ---------------- REFRESH BUTTONS ----------------
+  function spinRefresh(el){
+    if(!el) return;
+    el.classList.remove('spin');
+    void el.offsetWidth;
+    el.classList.add('spin');
+  }
+  function refreshDashboard(el){ spinRefresh(el); animateCounters(); renderProjectGrid(); showToast('Dashboard refreshed.'); }
+  function refreshProjectDetails(el){ spinRefresh(el); if(currentProjectId){ renderProjectDetailsView(); } else { showToast('Choose a project first.'); return; } showToast('Project details refreshed.'); }
+  function refreshTeamView(el){ spinRefresh(el); renderTeamView(); showToast('Team list refreshed.'); }
+  function refreshSettings(el){ spinRefresh(el); showToast('Settings refreshed.'); }
+  function refreshReports(el){ spinRefresh(el); renderReportsView(); showToast('Reports refreshed.'); }
+  function refreshTeamDashboard(el){ spinRefresh(el); renderTeamDashboard(); showToast('Assignment Dashboard refreshed.'); }
+
+  // ---------------- REPORTS CORNER ----------------
+  function renderReportsView(){
+    const sel = document.getElementById('report-project-select');
+    sel.innerHTML = projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+
+    const grouped = {};
+    activityLog.forEach(a => { (grouped[a.date] = grouped[a.date] || []).push(a); });
+
+    const list = document.getElementById('activity-log-list');
+    list.innerHTML = Object.keys(grouped).map(date => `
+      <div class="activity-date-group">
+        <div class="activity-date-label">${date}</div>
+        ${grouped[date].map((a,i) => `
+          <div class="activity-item">
+            <div class="activity-dot-col"><div class="activity-dot"></div>${i < grouped[date].length-1 ? '<div class="activity-line"></div>' : ''}</div>
+            <div class="activity-body">
+              <div class="activity-meta"><span>${a.time}</span><span>&middot;</span><span>${a.actor}</span>${a.dept!=='—' ? `<span class="activity-tag">${a.dept}</span>` : ''}</div>
+              <div class="activity-text">${a.text} <span style="color:var(--text-lo);">— ${a.project}</span></div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `).join('');
+  }
+  document.getElementById('export-activity-btn') && document.getElementById('export-activity-btn').addEventListener('click', ()=>{
+    showToast('Daily Progress Report PDF would be generated with the SunCraft letterhead.');
+  });
+
+  // ---------------- PROJECT ROW-REPORT (LEVEL 2) ----------------
+  function renderTaskTable(){
+    const body = document.getElementById('task-table-body');
+    body.innerHTML = tasks.map(t => `
+      <tr class="row-${t.status}" onclick="openDrawer('${t.id}')">
+        <td>${t.name}</td>
+        <td><span class="dept-badge">${t.dept}</span></td>
+        <td>${t.assignee}</td>
+        <td class="mono-cell">${t.due}</td>
+        <td class="mono-cell">${t.uploaded}</td>
+        <td><span class="status-tag ${t.status}"><span class="dot"></span>${statusLabel(t.status)}</span></td>
+      </tr>
+    `).join('');
+  }
+
+  function statusLabel(s){
+    return s==='red' ? 'Pending' : s==='yellow' ? 'Awaiting review' : 'Approved';
+  }
+
+  // ---------------- ASSIGN TASK MODAL (reserved for stage drill-down, next phase) ----------------
+  const overlay = document.getElementById('overlay');
+  const assignModal = document.getElementById('assign-modal');
+
+  const assignTaskBtn = document.getElementById('assign-task-btn');
+  if(assignTaskBtn){
+    assignTaskBtn.addEventListener('click', ()=>{
+      overlay.classList.add('show'); assignModal.classList.add('show');
+    });
+  }
+  document.getElementById('new-project-btn').addEventListener('click', ()=>{
+    showToast('New Project flow — coming in the next build phase.');
+  });
+  function closeModal(){ overlay.classList.remove('show'); assignModal.classList.remove('show'); }
+  document.getElementById('modal-cancel').addEventListener('click', closeModal);
+  overlay.addEventListener('click', ()=>{ closeModal(); closeDrawer(); });
+
+  document.getElementById('modal-save').addEventListener('click', ()=>{
+    const name = document.getElementById('m-task-name').value.trim();
+    if(!name){ showToast('Please enter a task name.'); return; }
+    const dept = document.getElementById('m-dept').value;
+    const assignee = document.getElementById('m-assignee').value;
+    const details = document.getElementById('m-details').value.trim() || '—';
+    const due = document.getElementById('m-due').value || 'Not set';
+    tasks.unshift({ id:'TASK-'+Math.floor(1000+Math.random()*8999), name, dept, assignee, details, due, uploaded:'—', status:'red', notes:'', files: [''] });
+    closeModal();
+    document.getElementById('m-task-name').value=''; document.getElementById('m-details').value=''; document.getElementById('m-due').value='';
+    showToast('Task created and marked Red.');
+  });
+
+  // ---------------- TASK DETAIL DRAWER ----------------
+  const drawer = document.getElementById('task-drawer');
+
+  function openDrawer(taskId){
+    currentTaskId = taskId;
+    const t = tasks.find(x=>x.id===taskId);
+    document.getElementById('d-task-name').textContent = t.name;
+    document.getElementById('d-task-id').textContent = t.id;
+    const statusEl = document.getElementById('d-status');
+    statusEl.className = 'status-tag ' + t.status;
+    document.getElementById('d-status-text').textContent = statusLabel(t.status);
+    document.getElementById('d-dept').textContent = t.dept;
+    document.getElementById('d-assignee').textContent = t.assignee;
+    document.getElementById('d-due').textContent = t.due;
+    document.getElementById('d-uploaded').textContent = t.uploaded;
+    document.getElementById('d-details').textContent = t.details;
+    document.getElementById('d-notes').textContent = t.notes || 'No notes submitted yet.';
+    document.getElementById('d-file-name').textContent = t.file || 'No file uploaded yet';
+    const approveBtn = document.getElementById('d-approve-btn');
+    approveBtn.style.display = (t.status==='yellow') ? 'block' : 'none';
+    overlay.classList.add('show');
+    drawer.classList.add('show');
+  }
+
+  function closeDrawer(){ drawer.classList.remove('show'); overlay.classList.remove('show'); }
+  document.getElementById('drawer-close').addEventListener('click', closeDrawer);
+
+  document.getElementById('d-approve-btn').addEventListener('click', ()=>{
+    const t = tasks.find(x=>x.id===currentTaskId);
+    if(t){ t.status = 'green'; }
+    closeDrawer();
+    showToast('Task approved and marked Green.');
+  });
+
+  // ============= STAGES & CHECKLIST DATA =============
+  const stagesData = {
+    p1: [ // NTPC Rajgarh 50MW
+      {
+        id: 'tender', name: 'Tender', progress: 34, status: 'awaiting', color: '#ffc93c',
+        desc: 'Bid documentation, tender submission and award status.',
+        items: [
+          { id: 1, title: 'Tender Documentation', assigned: 'Komal Verma — Procurement', weight: 25, achieved: 25, approved: true, approvedBy: 'Rohan Ghosh (MD)', files: ['Tender_Doc_Final.pdf'], assignment: 'Komal completed evaluation and documentation as assigned by MD on 18 Aug 2026', description: 'Review tender document and prepare compliance checklist.', assignedDate: '18 Aug 2026' },
+          { id: 2, title: 'Financial Bid Submission', assigned: 'Ankit Sharma — Procurement', weight: 40, achieved: 40, approved: true, approvedBy: 'Rohan Ghosh (MD)', files: ['Financial_Bid.xlsx'], assignment: 'Ankit submitted bids from 3 vendors as assigned by MD on 17 Aug 2026', description: 'Collect and submit financial bids from shortlisted vendors.', assignedDate: '17 Aug 2026' },
+          { id: 3, title: 'Technical Compliance Review', assigned: 'Priya Nair — Design', weight: 20, achieved: 0, approved: false, files: [], assignment: 'Awaiting Priya\'s review as assigned by MD', description: 'Verify technical specifications meet tender requirements.', assignedDate: '12 Aug 2026' },
+          { id: 4, title: 'Award Letter Processing', assigned: 'Devika Rao — Finance', weight: 15, achieved: 0, approved: false, files: [], assignment: 'Pending MD approval for vendor selection', description: 'Process LOA and initiate contract formalities post vendor selection.', assignedDate: '12 Aug 2026' },
+        ]
+      },
+      {
+        id: 'design', name: 'Design', progress: 69, status: 'awaiting', color: '#46b8f0',
+        desc: 'SLDs, layout drawings, structural and electrical design sign-off.',
+        items: [
+          { id: 1, title: 'Site Layout & GA', assigned: 'Rahul Dey — Design', weight: 30, achieved: 30, approved: true, approvedBy: 'Rohan Ghosh (MD)', files: ['GA_Layout_v2.pdf'], assignment: 'Rahul completed GA drawings as assigned by MD on 19 Aug 2026', description: 'Prepare general arrangement drawing for the full site layout.', assignedDate: '19 Aug 2026' },
+          { id: 2, title: 'Single Line Diagrams', assigned: 'Priya Nair — Design', weight: 25, achieved: 25, approved: true, approvedBy: 'Rohan Ghosh (MD)', files: ['SLD_Complete.pdf'], assignment: 'Priya finalized all SLDs as assigned by MD on 18 Aug 2026', description: 'Finalize SLDs for inverter-to-transformer routing.', assignedDate: '18 Aug 2026' },
+          { id: 3, title: 'Electrical Design Sign-off', assigned: 'Rahul Dey — Design', weight: 20, achieved: 14, approved: false, files: ['Electrical_Design_Draft.pdf'], assignment: 'Rahul submitted draft, awaiting final review from MD', description: 'Structural and electrical design review and sign-off.', assignedDate: '12 Aug 2026' },
+          { id: 4, title: 'Structural Analysis Report', assigned: 'Manoj Tiwari — Others', weight: 25, achieved: 0, approved: false, files: [], assignment: 'Assigned to Manoj, not yet started', description: 'Foundation and mounting structural load analysis.', assignedDate: '12 Aug 2026' },
+        ]
+      },
+      {
+        id: 'procurement', name: 'Procurement', progress: 32, status: 'awaiting', color: '#22a06b',
+        desc: 'Vendor quotations, PO issuance and material delivery tracking.',
+        items: [
+          { id: 1, title: 'Vendor Shortlisting', assigned: 'Komal Verma — Procurement', weight: 30, achieved: 30, approved: true, approvedBy: 'Rohan Ghosh (MD)', files: ['Vendor_List_Approved.xlsx'], assignment: 'Komal completed vendor evaluation as assigned by MD on 20 Aug 2026', description: 'Evaluate and shortlist vendors based on quotation and quality.', assignedDate: '20 Aug 2026' },
+          { id: 2, title: 'Quotation Comparison', assigned: 'Ankit Sharma — Procurement', weight: 25, achieved: 25, approved: true, approvedBy: 'Rohan Ghosh (MD)', files: ['Quote_Comparison.xlsx'], assignment: 'Ankit prepared comparison matrix as assigned by MD', description: 'Prepare comparative quotation matrix across vendors.', assignedDate: '12 Aug 2026' },
+          { id: 3, title: 'PO Preparation', assigned: 'Devika Rao — Finance', weight: 25, achieved: 0, approved: false, files: [], assignment: 'Awaiting Devika to prepare purchase orders', description: 'Draft and issue purchase orders to selected vendors.', assignedDate: '12 Aug 2026' },
+          { id: 4, title: 'Delivery Tracking Setup', assigned: 'Komal Verma — Procurement', weight: 20, achieved: 0, approved: false, files: [], assignment: 'Pending after PO issuance', description: 'Set up delivery schedule tracking for ordered material.', assignedDate: '12 Aug 2026' },
+        ]
+      },
+      {
+        id: 'execution', name: 'Execution', progress: 57, status: 'awaiting', color: '#ff9142',
+        desc: 'Site civil, mechanical and electrical installation progress.',
+        items: [
+          { id: 1, title: 'Priya Nair — Design', assigned: 'Priya Nair — Design', weight: 19, achieved: 19, approved: true, approvedBy: 'Rohan Ghosh (MD)', files: ['Mechanical_Mounting_final.pdf'], assignment: 'Priya completed mechanical mounting design as assigned by MD', description: 'Mechanical mounting structure installation at site.', assignedDate: '12 Aug 2026' },
+          { id: 2, title: 'Electrical Installation', assigned: 'Rahul Dey — Design', weight: 13, achieved: 13, approved: true, approvedBy: 'Rahul Dey', files: ['Electrical_Installation_final.pdf'], assignment: 'Rahul completed electrical installation as assigned by MD', description: 'Cabling, wiring and electrical panel installation.', assignedDate: '12 Aug 2026' },
+          { id: 3, title: 'Testing & Punch List', assigned: 'Manoj Tiwari — Others', weight: 43, achieved: 18, approved: false, files: ['Punch_List_Draft.pdf'], assignment: 'Manoj assigned to complete testing, currently 18% done', description: 'Site testing and punch-list closure before commissioning.', assignedDate: '12 Aug 2026' },
+          { id: 4, title: 'Site Safety Compliance', assigned: 'Komal Verma — Procurement', weight: 25, achieved: 7, approved: false, files: [], assignment: 'Komal monitoring site safety, 7% progress', description: 'Ongoing site safety audits and compliance monitoring.', assignedDate: '12 Aug 2026' },
+        ]
+      },
+      {
+        id: 'commissioning', name: 'Commissioning', progress: 0, status: 'not-started', color: '#ff5364',
+        desc: 'Testing, grid synchronization and handover.',
+        items: [
+          { id: 1, title: 'Factory Acceptance Test', assigned: 'Unassigned', weight: 30, achieved: 0, approved: false, files: [], assignment: 'Not yet assigned', description: 'FAT for major equipment before dispatch to site.', assignedDate: '12 Aug 2026' },
+          { id: 2, title: 'Site Acceptance Test', assigned: 'Unassigned', weight: 30, achieved: 0, approved: false, files: [], assignment: 'Not yet assigned', description: 'SAT after equipment installation at site.', assignedDate: '12 Aug 2026' },
+          { id: 3, title: 'Grid Synchronization', assigned: 'Unassigned', weight: 25, achieved: 0, approved: false, files: [], assignment: 'Awaiting DISCOM coordination', description: 'Coordinate with DISCOM for grid synchronization.', assignedDate: '12 Aug 2026' },
+          { id: 4, title: 'Final Handover & O&M', assigned: 'Unassigned', weight: 15, achieved: 0, approved: false, files: [], assignment: 'Post-commissioning activity', description: 'Final documentation handover and O&M transition.', assignedDate: '12 Aug 2026' },
+        ]
+      }
+    ]
+  };
+
+  // ============= STAGE DATA FALLBACK (projects without a hand-authored sheet) =============
+  function splitWeightsSimple(n, seed){
+    const raw = [];
+    for(let i=0;i<n;i++){ raw.push(10 + ((seed*(i+3)) % 40)); }
+    const sum = raw.reduce((a,b)=>a+b,0);
+    const weights = raw.map(v => Math.round(v/sum*100));
+    const diff = 100 - weights.reduce((a,b)=>a+b,0);
+    weights[weights.length-1] += diff;
+    return weights;
+  }
+
+  function ensureStageData(projectId){
+    if(stagesData[projectId]) return stagesData[projectId];
+    const project = projects.find(p => p.id === projectId);
+    const seedBase = project ? (project.id.charCodeAt(1) || 0) : 1;
+    const stageDefs = [
+      { id:'tender', name:'Tender', color:'#ffc93c', desc:'Bid documentation, tender submission and award status.', names:['Bid Submission','Technical Bid Evaluation','BG & Other Activity','LOA / Award'] },
+      { id:'design', name:'Design', color:'#46b8f0', desc:'SLDs, layout drawings, structural and electrical design sign-off.', names:['Concept Layout','Detailed Engineering (SLD/GA)','Structural Sign-off','Client Approval'] },
+      { id:'procurement', name:'Procurement', color:'#22a06b', desc:'Vendor quotations, PO issuance and material delivery tracking.', names:['Vendor RFQ & Comparison','PO Issuance','Material Dispatch','Site Delivery & GRN'] },
+      { id:'execution', name:'Execution', color:'#ff9142', desc:'Site civil, mechanical and electrical installation progress.', names:['Civil Work','Mechanical Mounting','Electrical Installation','Testing & Punch List'] },
+      { id:'commissioning', name:'Commissioning', color:'#ff5364', desc:'Testing, grid synchronization and handover.', names:['Pre-commissioning Checks','Grid Synchronization','Performance Testing','Handover & Documentation'] },
+    ];
+    const stages = stageDefs.map((sd, si) => {
+      const seed = seedBase + si*7 + 3;
+      const weights = splitWeightsSimple(sd.names.length, seed);
+      const targetPct = 15 + (seed*13) % 60;
+      let cum = 0;
+      const items = sd.names.map((nm, i) => {
+        const w = weights[i];
+        let achieved = 0;
+        if(cum + w <= targetPct){ achieved = w; cum += w; }
+        return { id:i+1, title:nm, assigned:'Unassigned', weight:w, achieved, approved:false, approvedBy:null, files: [], assignment:'Not yet started', description:'Task item under this stage.', assignedDate:'12 Aug 2026' };
+      });
+      const achievedSum = items.reduce((a,i)=>a+i.achieved, 0);
+      return { id:sd.id, name:sd.name, color:sd.color, desc:sd.desc, progress:achievedSum, status: achievedSum===0 ? 'not-started' : 'awaiting', items };
+    });
+    stagesData[projectId] = stages;
+    return stages;
+  }
+
+  // ============= STAGES GRID RENDERING =============
+  function renderStagesGrid(projectId){
+    const grid = document.getElementById('stages-grid');
+    if(!grid) return;
+    const stages = ensureStageData(projectId);
+
+    grid.innerHTML = '';
+    stages.forEach(stage => {
+      const statusClass = stage.status === 'done' ? 'done' : stage.status === 'pending' ? 'pending' : '';
+      const statusText = stage.status === 'awaiting' ? '• awaiting approval' : stage.status === 'not-started' ? '• Not started' : '• Done';
+
+      const card = document.createElement('div');
+      card.className = 'stage-card';
+      card.innerHTML = `
+        <div class="stage-info">
+          <h3 class="stage-title">📋 ${stage.name}</h3>
+          <p class="stage-desc">${stage.desc}</p>
+        </div>
+        <div class="stage-progress">
+          <span class="stage-status-badge ${statusClass}">${stage.progress}% ${statusText}</span>
+          <span class="stage-item-count">${stage.items.length} items</span>
+          <div class="stage-view-icon" title="View stage details">👁️</div>
+        </div>
+      `;
+      card.onclick = () => openChecklistModal(projectId, stage);
+      grid.appendChild(card);
+    });
+  }
+
+  // ============= CHECKLIST MODAL MANAGEMENT =============
+  const checklistModal = document.getElementById('checklist-modal');
+  let currentStageData = null;
+  let currentStageProjectId = null;
+
+  function escapeHtml(str){
+    return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function getAllMembersFlat(){
+    const list = [];
+    Object.keys(teamMembers).forEach(dept => {
+      teamMembers[dept].forEach(m => list.push({ label: `${m.name} — ${dept}` }));
+    });
+    return list;
+  }
+
+  function recalcStage(stage){
+    const achievedSum = stage.items.reduce((a,i) => a + i.achieved, 0);
+    const weightSum = stage.items.reduce((a,i) => a + i.weight, 0);
+    stage.weightSum = weightSum;
+    stage.progress = Math.min(100, achievedSum);
+    stage.status = achievedSum <= 0 ? 'not-started' : (weightSum === 100 && achievedSum >= 100 ? 'done' : 'awaiting');
+  }
+
+  function openChecklistModal(projectId, stage){
+    currentStageData = stage;
+    currentStageProjectId = projectId;
+    const project = projects.find(p => p.id === projectId);
+    document.getElementById('cl-stage-name').textContent = `${stage.name} — ${project ? project.name : 'Project'}`;
+    document.getElementById('cl-stage-desc').textContent = stage.desc;
+    document.getElementById('cl-add-item-form').style.display = 'none';
+    renderChecklistItems();
+    checklistModal.classList.add('show');
+  }
+
+  function itemTemplate(item){
+    const pct = item.weight > 0 ? Math.round((item.achieved / item.weight) * 100) : 0;
+    const members = getAllMembersFlat();
+    const options = ['Unassigned', ...members.map(m => m.label)];
+    return `
+      <div class="checklist-item" data-id="${item.id}">
+        <div class="item-header">
+          <div style="flex:1; padding-right:12px;">
+            <span class="item-number">#${item.id}</span>
+            <input type="text" class="item-title-input" value="${escapeHtml(item.title)}" data-field="title" data-id="${item.id}">
+            <input type="text" class="item-desc-input" value="${escapeHtml(item.description || '')}" data-field="description" data-id="${item.id}" placeholder="Add a short description...">
+          </div>
+          <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+            <div class="item-weight-wrap"><input type="number" class="item-weight-input" value="${item.weight}" min="0" max="100" data-field="weight" data-id="${item.id}"><span class="sign">wt%</span></div>
+            <span class="item-percent">${pct}% done</span>
+          </div>
+          <button class="item-close" data-id="${item.id}" title="Remove item">&times;</button>
+        </div>
+        <div class="item-assigned">
+          <strong>ASSIGNED TO (MD):</strong>
+          <select class="item-assignee-select" data-field="assigned" data-id="${item.id}">
+            ${options.map(o => `<option value="${escapeHtml(o)}" ${o === item.assigned ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
+          </select>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; margin:8px 0;">
+          <label style="font-size:11px; color:var(--text-lo);">Achieved:</label>
+          <input type="number" class="item-weight-input" data-field="achieved" data-id="${item.id}" value="${item.achieved}" min="0" max="${item.weight}">
+          <span class="sign" style="font-size:11px; color:var(--text-lo);">/ ${item.weight}%</span>
+        </div>
+        <div class="item-approval">
+          <span class="approval-badge ${item.approved ? 'done' : 'pending'}"></span>
+          <span class="approval-text">${item.approved ? `Approved by ${item.approvedBy || 'MD'}` : 'Awaiting approval'}</span>
+          <button class="reschedule-btn" data-id="${item.id}" title="Send this item back to the team">↺ Reschedule</button>
+        </div>
+        <div class="assignment-detail">
+          <strong>Assignment Status:</strong><br>${escapeHtml(item.assignment || '—')}
+        </div>
+        ${(item.files && item.files.length) ? item.files.map(f => `
+          <div class="item-file">
+            <span style="flex:1; overflow:hidden; text-overflow:ellipsis;">📎 ${escapeHtml(f)}</span>
+            <button class="file-view-btn" data-id="${item.id}" data-filename="${escapeHtml(f)}" title="View file">👁</button>
+          </div>
+        `).join('') : '<div class="item-file" style="color:var(--text-lo);">📎 No attachments yet</div>'}
+      </div>
+    `;
+  }
+
+  function renderChecklistItems(){
+    const stage = currentStageData;
+    recalcStage(stage);
+
+    document.getElementById('cl-stats').innerHTML = `
+      <div class="stat-box"><div class="stat-number">${stage.items.length}</div><div class="stat-label">Items</div></div>
+      <div class="stat-box"><div class="stat-number" style="color:var(--green);">${stage.items.filter(i=>i.achieved>=i.weight && i.weight>0).length}</div><div class="stat-label">Done</div></div>
+      <div class="stat-box"><div class="stat-number" style="color:var(--red);">${stage.items.filter(i=>i.achieved===0).length}</div><div class="stat-label">Pending</div></div>
+      <div class="stat-box"><div class="stat-number" style="color:var(--yellow);">${stage.progress}%</div><div class="stat-label">Progress</div></div>
+    `;
+
+    document.getElementById('cl-items').innerHTML = stage.items.map(itemTemplate).join('');
+
+    const sumBadge = document.getElementById('cl-sheet-sum');
+    sumBadge.textContent = stage.weightSum + '%';
+    sumBadge.className = 'sheet-sum-badge ' + (stage.weightSum === 100 ? 'ok' : 'bad');
+
+    const saveBtn = document.getElementById('cl-save-btn');
+    saveBtn.disabled = stage.weightSum !== 100;
+    saveBtn.style.opacity = stage.weightSum === 100 ? '1' : '.5';
+
+    const approveBtn = document.getElementById('cl-approve-btn');
+    const ready = stage.weightSum === 100 && stage.progress >= 100;
+    approveBtn.disabled = !ready;
+    approveBtn.style.opacity = ready ? '1' : '.5';
+
+    document.getElementById('cl-progress-fill').style.width = stage.progress + '%';
+    document.getElementById('cl-progress-label').textContent = stage.weightSum !== 100
+      ? `Weight sheet totals ${stage.weightSum}% — adjust item weights until it totals exactly 100%.`
+      : (stage.progress === 100 ? 'All items complete — ready for approval!' : 'All checklist items must be marked done (100% weighted) before approval.');
+
+    if(currentStageProjectId) renderStagesGrid(currentStageProjectId);
+  }
+
+  document.getElementById('cl-items').addEventListener('change', (e) => {
+    const el = e.target;
+    const field = el.getAttribute('data-field');
+    const id = el.getAttribute('data-id');
+    if(!field || !id || !currentStageData) return;
+    const item = currentStageData.items.find(i => String(i.id) === String(id));
+    if(!item) return;
+    if(field === 'title') item.title = el.value.trim() || item.title;
+    else if(field === 'description') item.description = el.value;
+    else if(field === 'assigned') item.assigned = el.value;
+    else if(field === 'weight'){
+      item.weight = Math.max(0, Math.min(100, parseInt(el.value, 10) || 0));
+      if(item.achieved > item.weight) item.achieved = item.weight;
+    } else if(field === 'achieved'){
+      item.achieved = Math.max(0, Math.min(item.weight, parseInt(el.value, 10) || 0));
+    }
+    renderChecklistItems();
+  });
+
+  document.getElementById('cl-items').addEventListener('click', (e) => {
+    const closeBtn = e.target.closest('.item-close');
+    if(closeBtn && currentStageData){
+      if(currentStageData.items.length <= 1){ showToast('A checklist needs at least one item.'); return; }
+      const id = closeBtn.getAttribute('data-id');
+      currentStageData.items = currentStageData.items.filter(i => String(i.id) !== String(id));
+      renderChecklistItems();
+      return;
+    }
+    const viewBtn = e.target.closest('.file-view-btn');
+    if(viewBtn){
+      openFilePreview(viewBtn.getAttribute('data-id'), viewBtn.getAttribute('data-filename'));
+      return;
+    }
+    const rescheduleBtn = e.target.closest('.reschedule-btn');
+    if(rescheduleBtn){
+      openRescheduleModal(rescheduleBtn.getAttribute('data-id'));
+      return;
+    }
+  });
+
+  // ---------------- FILE PREVIEW ----------------
+  function fileIconFor(filename){
+    const ext = (filename.split('.').pop() || '').toLowerCase();
+    if(ext === 'pdf') return '📄';
+    if(['xlsx','xls','csv'].includes(ext)) return '📊';
+    if(['doc','docx'].includes(ext)) return '📝';
+    if(['jpg','jpeg','png','gif'].includes(ext)) return '🖼️';
+    return '📎';
+  }
+
+  function openFilePreview(itemId, filename){
+    const item = currentStageData.items.find(i => String(i.id) === String(itemId));
+    document.getElementById('fp-filename').textContent = filename;
+    document.getElementById('fp-icon').textContent = fileIconFor(filename);
+    document.getElementById('fp-uploader').textContent = item ? item.assigned : '—';
+    document.getElementById('fp-item').textContent = item ? item.title : '—';
+    document.getElementById('file-preview-overlay').classList.add('show');
+    document.getElementById('file-preview-modal').classList.add('show');
+  }
+  function closeFilePreview(){
+    document.getElementById('file-preview-overlay').classList.remove('show');
+    document.getElementById('file-preview-modal').classList.remove('show');
+  }
+  document.getElementById('fp-close').addEventListener('click', closeFilePreview);
+  document.getElementById('fp-close-btn').addEventListener('click', closeFilePreview);
+  document.getElementById('file-preview-overlay').addEventListener('click', closeFilePreview);
+  document.getElementById('fp-download-btn').addEventListener('click', () => {
+    showToast('Downloading ' + document.getElementById('fp-filename').textContent + '…');
+  });
+
+  // ---------------- RESCHEDULE ITEM ----------------
+  let rescheduleItemId = null;
+
+  function openRescheduleModal(itemId){
+    rescheduleItemId = itemId;
+    const item = currentStageData.items.find(i => String(i.id) === String(itemId));
+    document.getElementById('rs-item-name').textContent = item ? `${item.title} — currently assigned to ${item.assigned}` : '';
+    document.getElementById('rs-reason').value = '';
+    document.getElementById('reschedule-overlay').classList.add('show');
+    document.getElementById('reschedule-modal').classList.add('show');
+  }
+  function closeRescheduleModal(){
+    document.getElementById('reschedule-overlay').classList.remove('show');
+    document.getElementById('reschedule-modal').classList.remove('show');
+  }
+  document.getElementById('rs-cancel').addEventListener('click', closeRescheduleModal);
+  document.getElementById('reschedule-overlay').addEventListener('click', closeRescheduleModal);
+  document.getElementById('rs-confirm').addEventListener('click', () => {
+    const item = currentStageData.items.find(i => String(i.id) === String(rescheduleItemId));
+    if(!item) return;
+    const reason = document.getElementById('rs-reason').value.trim();
+    const dateStr = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+    item.achieved = 0;
+    item.approved = false;
+    item.approvedBy = null;
+    item.assignment = `Rescheduled by MD on ${dateStr}${reason ? ' — ' + reason : ''}. Awaiting resubmission from ${item.assigned}.`;
+    renderChecklistItems();
+    closeRescheduleModal();
+    showToast(`"${item.title}" sent back to ${item.assigned} for rework.`);
+  });
+
+  document.getElementById('cl-add-item-btn').addEventListener('click', () => {
+    const sel = document.getElementById('ai-assignee');
+    const members = getAllMembersFlat();
+    sel.innerHTML = '<option value="Unassigned">— Unassigned —</option>' + members.map(m => `<option value="${escapeHtml(m.label)}">${escapeHtml(m.label)}</option>`).join('');
+    document.getElementById('ai-name').value = '';
+    document.getElementById('ai-desc').value = '';
+    document.getElementById('ai-weight').value = '';
+    document.getElementById('cl-add-item-form').style.display = 'grid';
+  });
+  document.getElementById('ai-cancel').addEventListener('click', () => {
+    document.getElementById('cl-add-item-form').style.display = 'none';
+  });
+  document.getElementById('ai-add').addEventListener('click', () => {
+    const name = document.getElementById('ai-name').value.trim();
+    const desc = document.getElementById('ai-desc').value.trim();
+    const assignee = document.getElementById('ai-assignee').value;
+    const weight = Math.max(0, Math.min(100, parseInt(document.getElementById('ai-weight').value, 10) || 0));
+    if(!name){ showToast('Please enter an item name.'); return; }
+    if(weight <= 0){ showToast('Please enter a weight greater than 0%.'); return; }
+    const nextId = currentStageData.items.length ? Math.max(...currentStageData.items.map(i => i.id)) + 1 : 1;
+    const todayStr = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+    currentStageData.items.push({ id: nextId, title: name, description: desc, assigned: assignee, weight, achieved: 0, approved: false, approvedBy: null, files: [], assignment: `Assigned to ${assignee} by MD`, assignedDate: todayStr });
+    renderChecklistItems();
+    document.getElementById('cl-add-item-form').style.display = 'none';
+    showToast('Item added to the weight sheet.');
+  });
+
+  document.getElementById('cl-close').addEventListener('click', () => checklistModal.classList.remove('show'));
+  document.getElementById('cl-close-btn').addEventListener('click', () => checklistModal.classList.remove('show'));
+  document.getElementById('cl-save-btn').addEventListener('click', () => {
+    if(currentStageData.weightSum !== 100){ showToast('Weight sheet must total exactly 100% before saving.'); return; }
+    showToast(`Weight sheet saved — 100% allocated across ${currentStageData.items.length} item(s).`);
+  });
+  document.getElementById('cl-approve-btn').addEventListener('click', () => {
+    if(currentStageData.weightSum !== 100 || currentStageData.progress < 100){ showToast('Sheet must total 100% and all items fully achieved before approval.'); return; }
+    currentStageData.items.forEach(i => { if(!i.approved){ i.approved = true; i.approvedBy = 'Rohan Ghosh (MD)'; } });
+    currentStageData.status = 'done';
+    renderChecklistItems();
+    showToast('Stage approved — all items signed off.');
+    checklistModal.classList.remove('show');
+  });
+
+  // ============= INTEGRATION WITH PROJECT VIEW =============
+  function onProjectSelect(projectId){
+    currentProjectId = projectId || null;
+    renderProjectDetailsView();
+  }
+
+  // ============= TEAM CONSOLE =============
+  let currentTeamMember = null;     // { name, department, designation }
+  let teamLoginFailCount = 0;
+  let currentTeamTasks = [];        // flattened list of {projectId, projectName, stage, item}
+  let currentTeamDetailIdx = null;
+
+  function showTeamLogin(){
+    document.getElementById('login-view').style.display = 'none';
+    document.getElementById('app-view').style.display = 'none';
+    document.getElementById('team-app-view').style.display = 'none';
+    document.getElementById('team-login-view').classList.add('show');
+    document.getElementById('tc-error').style.display = 'none';
+    document.getElementById('tc-note').style.display = 'none';
+    document.getElementById('tc-locked-msg').style.display = 'none';
+    document.getElementById('tc-pin').value = '';
+    populateTeamDeptOptions();
+  }
+
+  async function populateTeamDeptOptions(){
+    const sel = document.getElementById('tc-department');
+    const { data, error } = await sb.from('departments').select('name').order('name');
+    if(error || !data || data.length === 0){
+      // fall back to whatever departments exist in the mock data, so the
+      // screen still works even if this fetch fails for some reason
+      sel.innerHTML = Object.keys(teamMembers).map(d => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('');
+      return;
+    }
+    sel.innerHTML = data.map(d => `<option value="${escapeHtml(d.name)}">${escapeHtml(d.name)}</option>`).join('');
+  }
+
+  document.getElementById('team-login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const tcError = document.getElementById('tc-error');
+    const tcNote = document.getElementById('tc-note');
+    const tcLocked = document.getElementById('tc-locked-msg');
+    tcError.style.display = 'none';
+    tcNote.style.display = 'none';
+    tcLocked.style.display = 'none';
+
+    const selectedDept = document.getElementById('tc-department').value;
+    const enteredPin = document.getElementById('tc-pin').value.trim();
+
+    // Every session (even a PIN login) needs a real Supabase Auth session for
+    // RLS to have an identity to check against — anonymous sign-in provides that.
+    let { data: { session } } = await sb.auth.getSession();
+    if(!session){
+      const { error: anonErr } = await sb.auth.signInAnonymously();
+      if(anonErr){
+        tcError.textContent = 'Could not reach the server. Check your connection and try again.';
+        tcError.style.display = 'block';
+        return;
+      }
+    }
+
+    // PIN is the real identity — team_login() searches every member, regardless
+    // of which department was picked on screen.
+    const { data: rows, error } = await sb.rpc('team_login', { input_pin: enteredPin });
+
+    if(error){
+      teamLoginFailCount++;
+      if(error.message && error.message.includes('locked')){
+        tcLocked.style.display = 'block';
+      } else if(teamLoginFailCount >= 5){
+        tcLocked.style.display = 'block';
+      } else {
+        tcError.textContent = `Incorrect PIN. Please try again. (${5 - teamLoginFailCount} attempt${5-teamLoginFailCount!==1?'s':''} left)`;
+        tcError.style.display = 'block';
+      }
+      return;
+    }
+
+    teamLoginFailCount = 0;
+    const match = rows && rows[0];
+    if(!match) return;
+
+    await sb.auth.refreshSession(); // pick up the team_member_id claim just attached server-side
+
+    const mismatched = (match.department_name !== selectedDept);
+    currentTeamMember = { id: match.member_id, name: match.member_name, department: match.department_name, designation: match.designation || '—' };
+
+    document.getElementById('team-login-view').classList.remove('show');
+    document.getElementById('team-app-view').style.display = 'block';
+    renderTeamDashboard();
+
+    if(mismatched){
+      showToast(`Logged in as ${currentTeamMember.name} — ${currentTeamMember.department}, since that's who this PIN belongs to.`);
+    }
+  });
+
+  document.getElementById('tc-logout-btn').addEventListener('click', async () => {
+    currentTeamMember = null;
+    await sb.auth.signOut();
+    document.getElementById('team-app-view').style.display = 'none';
+    showTeamLogin();
+  });
+
+  function teamItemStatus(item){
+    if(item.achieved <= 0) return 'red';
+    if(item.approved) return 'green';
+    return 'yellow';
+  }
+  function teamItemStatusLabel(item){
+    if(item.achieved <= 0) return 'Not started';
+    if(item.approved) return 'Approved by MD';
+    return 'Submitted — awaiting MD';
+  }
+
+  function renderTeamDashboard(){
+    if(!currentTeamMember) return;
+    document.getElementById('tc-member-name').textContent = currentTeamMember.name;
+    document.getElementById('tc-member-role').textContent = `${currentTeamMember.designation} · ${currentTeamMember.department}`;
+
+    // make sure every project has stage data generated
+    projects.forEach(p => ensureStageData(p.id));
+
+    const label = `${currentTeamMember.name} — ${currentTeamMember.department}`;
+    currentTeamTasks = [];
+    projects.forEach(p => {
+      (stagesData[p.id] || []).forEach(stage => {
+        stage.items.forEach(item => {
+          if(item.assigned === label){
+            currentTeamTasks.push({ projectId: p.id, projectName: p.name, stage, item });
+          }
+        });
+      });
+    });
+
+    const total = currentTeamTasks.length;
+    const pending = currentTeamTasks.filter(t => t.item.achieved <= 0 || (!t.item.approved && t.item.achieved < t.item.weight)).length;
+    const approved = currentTeamTasks.filter(t => t.item.approved).length;
+    document.getElementById('tc-count-total').textContent = total;
+    document.getElementById('tc-count-pending').textContent = currentTeamTasks.filter(t => teamItemStatus(t.item) !== 'green').length;
+    document.getElementById('tc-count-approved').textContent = approved;
+
+    const wrap = document.getElementById('tc-cards-wrap');
+    if(total === 0){
+      wrap.innerHTML = `
+        <div class="tc-empty-state">
+          <div class="ic">📋</div>
+          <div>No tasks assigned to you yet. Check back once your MD assigns one.</div>
+        </div>
+      `;
+      return;
+    }
+    wrap.innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Sl No</th><th>Date</th><th>Department</th><th>Project Assigned</th><th>Task</th><th>Status</th></tr>
+          </thead>
+          <tbody id="tc-table-body"></tbody>
+        </table>
+      </div>
+    `;
+    document.getElementById('tc-table-body').innerHTML = currentTeamTasks.map((t, idx) => {
+      const status = teamItemStatus(t.item);
+      return `
+        <tr class="row-${status}" onclick="openTeamTaskDetail(${idx})">
+          <td class="mono-cell">${idx + 1}</td>
+          <td class="mono-cell">${escapeHtml(t.item.assignedDate || '—')}</td>
+          <td><span class="dept-badge">${escapeHtml(currentTeamMember.department)}</span></td>
+          <td>${escapeHtml(t.projectName)}</td>
+          <td>${escapeHtml(t.item.title)}</td>
+          <td><span class="status-tag ${status}"><span class="dot"></span>${teamItemStatusLabel(t.item)}</span></td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function renderTcFileList(item){
+    const wrap = document.getElementById('tc-d-files');
+    if(!item.files || item.files.length === 0){
+      wrap.innerHTML = '<div class="item-file" style="color:var(--text-lo);">📎 No attachments yet</div>';
+      return;
+    }
+    wrap.innerHTML = item.files.map(f => `<div class="item-file"><span>📎 ${escapeHtml(f)}</span></div>`).join('');
+  }
+
+  function openTeamTaskDetail(idx){
+    currentTeamDetailIdx = idx;
+    const t = currentTeamTasks[idx];
+    const item = t.item;
+    const status = teamItemStatus(item);
+    const locked = item.achieved >= item.weight; // already sent — cannot edit further
+
+    document.getElementById('tc-d-proj').textContent = `${t.projectName} · ${t.stage.name}`;
+    document.getElementById('tc-d-title').textContent = item.title;
+    document.getElementById('tc-d-status').className = 'status-tag ' + status;
+    document.getElementById('tc-d-status-text').textContent = teamItemStatusLabel(item);
+    document.getElementById('tc-d-desc').textContent = item.description || 'No description provided.';
+    document.getElementById('tc-d-notes').value = item.teamNotes || '';
+    document.getElementById('tc-d-notes').disabled = locked;
+    renderTcFileList(item);
+
+    document.getElementById('tc-d-attach-row').style.display = locked ? 'none' : 'flex';
+    document.getElementById('tc-d-send').style.display = locked ? 'none' : 'block';
+    document.getElementById('tc-d-locked-note').style.display = locked ? 'block' : 'none';
+    document.getElementById('tc-d-new-file').value = '';
+
+    document.getElementById('tc-detail-overlay').classList.add('show');
+    document.getElementById('tc-detail-modal').classList.add('show');
+  }
+
+  function closeTeamTaskDetail(){
+    if(currentTeamDetailIdx !== null){
+      const t = currentTeamTasks[currentTeamDetailIdx];
+      if(t && t.item.achieved < t.item.weight){
+        t.item.teamNotes = document.getElementById('tc-d-notes').value;
+      }
+    }
+    document.getElementById('tc-detail-overlay').classList.remove('show');
+    document.getElementById('tc-detail-modal').classList.remove('show');
+    currentTeamDetailIdx = null;
+  }
+  document.getElementById('tc-d-close').addEventListener('click', closeTeamTaskDetail);
+  document.getElementById('tc-d-cancel').addEventListener('click', closeTeamTaskDetail);
+  document.getElementById('tc-detail-overlay').addEventListener('click', closeTeamTaskDetail);
+
+  document.getElementById('tc-d-attach-btn').addEventListener('click', () => {
+    const nameInput = document.getElementById('tc-d-new-file');
+    const filename = nameInput.value.trim();
+    if(!filename){ showToast('Enter a file name to attach.'); return; }
+    const t = currentTeamTasks[currentTeamDetailIdx];
+    if(!t) return;
+    if(!t.item.files) t.item.files = [];
+    t.item.files.push(filename);
+    nameInput.value = '';
+    renderTcFileList(t.item);
+    showToast('File attached.');
+  });
+
+  document.getElementById('tc-d-send').addEventListener('click', () => {
+    const t = currentTeamTasks[currentTeamDetailIdx];
+    if(!t) return;
+    t.item.teamNotes = document.getElementById('tc-d-notes').value;
+    t.item.achieved = t.item.weight;
+    const dateStr = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+    const timeStr = new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+    t.item.assignment = `Submitted by ${currentTeamMember.name} on ${dateStr}, ${timeStr}. Awaiting MD review.`;
+    closeTeamTaskDetail();
+    renderTeamDashboard();
+    showToast('Submitted to MD for review.');
+  });
+
+  // ============= TOAST ================
+  let toastTimer;
+  function showToast(msg){
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=> toast.classList.remove('show'), 2600);
+  }
+</script>
+</body>
+</html>
