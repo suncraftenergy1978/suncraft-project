@@ -778,6 +778,7 @@
       </div>
       <button type="submit" class="btn-primary">Continue</button>
     </form>
+    <div class="console-switch"><a href="#" onclick="startPinRecovery(); return false;">Forgot your PIN?</a></div>
     <div class="console-switch"><a href="#" onclick="showRoleSelect(); return false;">← Back</a></div>
   </div>
 
@@ -1321,6 +1322,26 @@
   </div>
 </div>
 
+<!-- ================= PIN RECOVERY: SET NEW PIN ================= -->
+<div class="mini-modal-overlay" id="pr-overlay"></div>
+<div class="mini-modal" id="pr-modal">
+  <h3 style="font-family:var(--font-display); font-size:16px; margin-bottom:6px;">Set a new MD PIN</h3>
+  <p style="font-size:12.5px; color:var(--text-lo); margin-bottom:16px; line-height:1.5;">
+    Your Google sign-in just confirmed you're the real MD — that's enough to reset your PIN right now, without needing the old one.
+  </p>
+  <div class="field">
+    <label>New 4-digit PIN</label>
+    <div style="display:flex; gap:8px;">
+      <input type="text" id="pr-pin" maxlength="4" inputmode="numeric" style="flex:1;" />
+      <button class="btn-ghost" id="pr-generate-pin" style="white-space:nowrap;">🎲 Generate</button>
+    </div>
+  </div>
+  <div class="modal-actions" style="margin-top:18px;">
+    <button class="btn-primary" id="pr-confirm" style="flex:1;">Set PIN and continue</button>
+  </div>
+  <div class="console-switch"><a href="#" id="pr-cancel">Cancel and sign out</a></div>
+</div>
+
 <!-- ================= TASK DETAIL DRAWER ================= -->
 <div class="drawer" id="task-drawer">
   <div class="drawer-head">
@@ -1602,6 +1623,8 @@
     document.getElementById('md-pin-locked').style.display = 'none';
     document.getElementById('md-google-error').style.display = 'none';
     document.getElementById('md-google-loading').style.display = 'none';
+    document.getElementById('pr-overlay').classList.remove('show');
+    document.getElementById('pr-modal').classList.remove('show');
   }
 
   document.getElementById('role-md-btn').addEventListener('click', function(){
@@ -1643,8 +1666,17 @@
     document.getElementById('md-google-card').style.display = 'block';
   });
 
+  function startPinRecovery(){
+    sessionStorage.setItem('sc_login_intent', 'md_recovery');
+    document.getElementById('md-pin-card').style.display = 'none';
+    document.getElementById('md-google-card').style.display = 'block';
+  }
+
   document.getElementById('md-google-btn').addEventListener('click', async function(){
-    sessionStorage.setItem('sc_login_intent', 'md');
+    // Preserve a recovery intent if that's how we got here — otherwise this is a normal login.
+    if(sessionStorage.getItem('sc_login_intent') !== 'md_recovery'){
+      sessionStorage.setItem('sc_login_intent', 'md');
+    }
     document.getElementById('md-google-error').style.display = 'none';
     document.getElementById('md-google-loading').style.display = 'block';
     const { error } = await sb.auth.signInWithOAuth({
@@ -1664,13 +1696,14 @@
     // the auth-state listener below when the page reloads.
   });
 
-  // Handles the moment we detect a real signed-in session with intent=md,
-  // regardless of exactly which Supabase event name reported it (the event
-  // name Supabase uses here can vary depending on load timing).
+  // Handles the moment we detect a real signed-in session with intent=md
+  // or intent=md_recovery, regardless of exactly which Supabase event name
+  // reported it (the event name here can vary depending on load timing).
   let mdClaimStarted = false;
+  let pendingRecoverySession = null;
   async function tryClaimMD(session){
     const intent = sessionStorage.getItem('sc_login_intent');
-    if(intent !== 'md' || !session || mdClaimStarted) return;
+    if((intent !== 'md' && intent !== 'md_recovery') || !session || mdClaimStarted) return;
     mdClaimStarted = true;
 
     document.getElementById('md-google-loading').style.display = 'block';
@@ -1689,10 +1722,46 @@
     }
     document.getElementById('md-google-card').style.display = 'none';
     driveAccessToken = session.provider_token || null;
+
+    if(intent === 'md_recovery'){
+      pendingRecoverySession = session;
+      document.getElementById('pr-pin').value = String(Math.floor(1000 + Math.random()*9000));
+      document.getElementById('pr-overlay').classList.add('show');
+      document.getElementById('pr-modal').classList.add('show');
+      return;
+    }
+
     enterMDConsole(session.user.email);
     if(driveAccessToken) syncDriveFolders();
     else document.getElementById('drive-storage-label').textContent = 'Not connected';
   }
+
+  document.getElementById('pr-generate-pin').addEventListener('click', () => {
+    document.getElementById('pr-pin').value = String(Math.floor(1000 + Math.random()*9000));
+  });
+  document.getElementById('pr-cancel').addEventListener('click', async (e) => {
+    e.preventDefault();
+    await sb.auth.signOut();
+    mdClaimStarted = false;
+    driveAccessToken = null;
+    pendingRecoverySession = null;
+    document.getElementById('pr-overlay').classList.remove('show');
+    document.getElementById('pr-modal').classList.remove('show');
+    showRoleSelect();
+  });
+  document.getElementById('pr-confirm').addEventListener('click', async () => {
+    const pin = document.getElementById('pr-pin').value.trim();
+    if(!/^\d{4}$/.test(pin)){ showToast('PIN must be exactly 4 digits.'); return; }
+    const { data: ok, error } = await sb.rpc('set_md_pin', { new_pin: pin });
+    if(error || !ok){ showToast('Could not set your PIN — try again.'); return; }
+    document.getElementById('pr-overlay').classList.remove('show');
+    document.getElementById('pr-modal').classList.remove('show');
+    showToast(`PIN updated to ${pin}. Signing you in…`);
+    const session = pendingRecoverySession;
+    pendingRecoverySession = null;
+    enterMDConsole(session.user.email);
+    if(driveAccessToken) syncDriveFolders();
+  });
 
   // Catch the redirect back from Google, however Supabase reports it.
   sb.auth.onAuthStateChange((event, session) => {
@@ -1912,13 +1981,14 @@
   document.getElementById('rp-generate-pin').addEventListener('click', () => {
     document.getElementById('rp-pin').value = generatePin();
   });
-  document.getElementById('rp-confirm').addEventListener('click', () => {
+  document.getElementById('rp-confirm').addEventListener('click', async () => {
     const pin = document.getElementById('rp-pin').value.trim();
     if(!/^\d{4}$/.test(pin)){ showToast('PIN must be exactly 4 digits.'); return; }
     if(!resetPinTarget) return;
 
     if(resetPinTarget === 'MD'){
-      mdPin = pin;
+      const { data: ok, error } = await sb.rpc('set_md_pin', { new_pin: pin });
+      if(error || !ok){ showToast('Could not update your PIN — try again.'); return; }
       document.getElementById('md-pin-display').textContent = pin;
       closeResetPinModal();
       showToast(`Your MD login PIN is now ${pin}. Keep it confidential.`);
