@@ -1107,8 +1107,14 @@
       <div class="report-block">
         <div class="report-block-head">
           <h3>Daily Progress Report</h3>
-          <button class="btn-yellow" id="export-activity-btn">Export as PDF</button>
+          <div class="section-actions" style="align-items:center;">
+            <input type="date" id="dpr-from-date" class="report-select" style="padding:8px 10px;" title="From date (optional)" />
+            <span style="color:var(--text-lo); font-size:12px;">to</span>
+            <input type="date" id="dpr-to-date" class="report-select" style="padding:8px 10px;" title="To date (optional)" />
+            <button class="btn-yellow" id="export-activity-btn">Export as PDF</button>
+          </div>
         </div>
+        <p style="font-size:11px; color:var(--text-lo); margin:-8px 0 14px;">Leave both blank to export everything. Dates are inclusive.</p>
         <div id="activity-log-list"></div>
       </div>
     </div>
@@ -1404,15 +1410,8 @@
   }
 
   async function loadProjectsFromDB(){
-    let { data, error } = await sb.from('projects').select('*').order('created_at');
+    const { data, error } = await sb.from('projects').select('*').order('created_at');
     if(error){ showToast('Could not load projects: ' + error.message); return; }
-
-    if(data.length === 0){
-      const { error: seedErr } = await sb.from('projects').insert(SEED_PROJECTS);
-      if(seedErr){ showToast('Could not seed projects: ' + seedErr.message); return; }
-      ({ data, error } = await sb.from('projects').select('*').order('created_at'));
-      if(error){ showToast('Could not reload projects: ' + error.message); return; }
-    }
 
     projects = data.map(row => ({
       id: row.id, name: row.name, client: row.client || '—',
@@ -1435,21 +1434,15 @@
   let currentView = 'dashboard';
 
   const teamMembers = {
-    Procurement: [ {name:'Ankit Sharma', designation:'Procurement Executive', pin:'4821', status:'ok'}, {name:'Komal Verma', designation:'Procurement Officer', pin:'7392', status:'ok'} ],
-    Design:      [ {name:'Priya Nair', designation:'Design Engineer', pin:'1058', status:'ok'}, {name:'Rahul Dey', designation:'Design Engineer', pin:'6624', status:'locked'} ],
-    Finance:     [ {name:'Devika Rao', designation:'Finance Executive', pin:'3947', status:'ok'}, {name:'Sneha Iyer', designation:'Accounts Officer', pin:'8815', status:'ok'} ],
-    Others:      [ {name:'Manoj Tiwari', designation:'Site Supervisor', pin:'2266', status:'ok'}, {name:'Farhan Sheikh', designation:'Site Coordinator', pin:'5503', status:'ok'} ],
+    Procurement: [],
+    Design:      [],
+    Finance:     [],
+    Others:      [],
   };
 
   const formerMembers = []; // people removed from the active roster — kept for Settings + audit purposes
 
-  const activityLog = [
-    { date:'16 Aug 2026', time:'11:45 AM', actor:'Komal Verma', dept:'Procurement', project:'NTPC Rajgarh 50MW', text:'Uploaded a file and notes for "HT cable vendor quotation".' },
-    { date:'16 Aug 2026', time:'10:12 AM', actor:'Rabin Roy (MD)', dept:'—', project:'NTPC Rajgarh 50MW', text:'Approved "Geo-tech soil report review" — status set to Green.' },
-    { date:'15 Aug 2026', time:'6:02 PM', actor:'Priya Nair', dept:'Design', project:'Adani Kutch Phase-2', text:'Added task notes for "Single line diagram — Block C".' },
-    { date:'15 Aug 2026', time:'3:20 PM', actor:'Rabin Roy (MD)', dept:'—', project:'Tata Power Rooftop — Pune', text:'Created project and auto-assigned 4 default teams.' },
-    { date:'14 Aug 2026', time:'9:40 AM', actor:'Devika Rao', dept:'Finance', project:'NTPC Rajgarh 50MW', text:'Uploaded "Q2 Cost Variance" report.' },
-  ];
+  const activityLog = []; // starts empty — every entry from here on is a real logged action
 
   // ---------------- SPLASH SCREEN ----------------
   window.addEventListener('load', function(){
@@ -2166,6 +2159,10 @@
     });
 
     const list = document.getElementById('activity-log-list');
+    if(dateOrder.length === 0){
+      list.innerHTML = '<p style="color:var(--text-lo); font-size:13px;">No activity yet. Every real action from here on will show up here.</p>';
+      return;
+    }
     list.innerHTML = dateOrder.map(date => `
       <div class="activity-date-group">
         <div class="activity-date-label">${date}</div>
@@ -2190,6 +2187,22 @@
   }
 
   function exportActivityLogPDF(){
+    const fromVal = document.getElementById('dpr-from-date').value; // yyyy-mm-dd or ''
+    const toVal = document.getElementById('dpr-to-date').value;
+    const fromTs = fromVal ? new Date(fromVal + 'T00:00:00').getTime() : null;
+    const toTs = toVal ? new Date(toVal + 'T23:59:59').getTime() : null;
+
+    let filtered = activityLog.slice().sort((a,b) => parseLogTimestamp(b) - parseLogTimestamp(a));
+    if(fromTs || toTs){
+      filtered = filtered.filter(a => {
+        const t = parseLogTimestamp(a);
+        if(fromTs && t < fromTs) return false;
+        if(toTs && t > toTs) return false;
+        return true;
+      });
+    }
+    if(filtered.length === 0){ showToast('No activity in that date range.'); return; }
+
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit:'mm', format:'a4' });
     let y = addLetterhead(doc);
@@ -2197,10 +2210,10 @@
     doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(20,20,20);
     doc.text('Daily Progress Report', 10, y); y += 6;
     doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(100,100,100);
-    doc.text(`Generated ${pdfDateStamp()} · MD-only report`, 10, y); y += 8;
+    const rangeLabel = (fromVal || toVal) ? `Range: ${fromVal || 'start'} to ${toVal || 'today'} · ` : '';
+    doc.text(`${rangeLabel}Generated ${pdfDateStamp()} · MD-only report`, 10, y); y += 8;
 
-    const rows = activityLog.slice().sort((a,b) => parseLogTimestamp(b) - parseLogTimestamp(a))
-      .map(a => [a.date, a.time, a.actor, a.dept !== '—' ? a.dept : '', a.project, a.text]);
+    const rows = filtered.map(a => [a.date, a.time, a.actor, a.dept !== '—' ? a.dept : '', a.project, a.text]);
     doc.autoTable({
       startY: y,
       head: [['Date','Time','Actor','Dept','Project','Activity']],
@@ -2213,7 +2226,7 @@
     });
 
     doc.save('SunCraft_Daily_Progress_Report.pdf');
-    showToast('Daily Progress Report PDF downloaded.');
+    showToast(`Daily Progress Report PDF downloaded (${filtered.length} entries).`);
   }
 
   function exportProjectPDF(){
