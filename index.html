@@ -886,9 +886,10 @@
     <div class="k">Attachments</div>
     <div class="tc-file-list" id="tc-d-files"></div>
     <div class="tc-attach-row" id="tc-d-attach-row">
-      <input type="text" id="tc-d-new-file" class="select-input" placeholder="e.g. Vendor_Quote_Final.pdf" />
-      <button class="btn-ghost" id="tc-d-attach-btn">📎 Attach</button>
+      <label class="btn-ghost" for="tc-d-file-picker" style="cursor:pointer; text-align:center; flex:1; display:flex; align-items:center; justify-content:center;">📎 Choose file to attach</label>
+      <input type="file" id="tc-d-file-picker" style="display:none;" />
     </div>
+    <p style="font-size:10.5px; color:var(--text-lo); margin-top:6px;">This records the file name for MD's review. Uploading the actual file content to Drive isn't wired up yet — that's a later step.</p>
 
     <p id="tc-d-locked-note" style="display:none; font-size:11.5px; color:var(--text-lo); margin-top:14px;">Submitted — you can no longer edit this item. Contact your MD if changes are needed.</p>
   </div>
@@ -3104,7 +3105,7 @@
     document.getElementById('tc-d-attach-row').style.display = locked ? 'none' : 'flex';
     document.getElementById('tc-d-send').style.display = locked ? 'none' : 'block';
     document.getElementById('tc-d-locked-note').style.display = locked ? 'block' : 'none';
-    document.getElementById('tc-d-new-file').value = '';
+    document.getElementById('tc-d-file-picker').value = '';
 
     document.getElementById('tc-detail-overlay').classList.add('show');
     document.getElementById('tc-detail-modal').classList.add('show');
@@ -3125,17 +3126,16 @@
   document.getElementById('tc-d-cancel').addEventListener('click', closeTeamTaskDetail);
   document.getElementById('tc-detail-overlay').addEventListener('click', closeTeamTaskDetail);
 
-  document.getElementById('tc-d-attach-btn').addEventListener('click', () => {
-    const nameInput = document.getElementById('tc-d-new-file');
-    const filename = nameInput.value.trim();
-    if(!filename){ showToast('Enter a file name to attach.'); return; }
+  document.getElementById('tc-d-file-picker').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
     const t = currentTeamTasks[currentTeamDetailIdx];
     if(!t) return;
     if(!t.item.files) t.item.files = [];
-    t.item.files.push(filename);
-    nameInput.value = '';
+    t.item.files.push(file.name);
+    e.target.value = ''; // clear so the same file can be re-selected later if needed
     renderTcFileList(t.item);
-    showToast('File attached.');
+    showToast('File attached: ' + file.name);
   });
 
   document.getElementById('tc-d-send').addEventListener('click', () => {
