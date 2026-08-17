@@ -411,6 +411,9 @@
   .member-pin{ font-family:var(--font-mono); font-size:12px; font-weight:700; color:var(--yellow); background:rgba(255,201,60,0.12); border:1px solid rgba(255,201,60,0.28); padding:4px 9px; border-radius:7px; letter-spacing:1px; flex-shrink:0; }
   .member-actions{ display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0; }
   .member-reset{ font-size:10.5px; background:none; border:1px solid rgba(191,230,251,0.16); color:var(--sky-pale); padding:5px 9px; border-radius:7px; flex-shrink:0; }
+  .member-action-row{ display:flex; gap:6px; }
+  .member-delete{ font-size:10.5px; background:rgba(255,83,100,0.08); border:1px solid rgba(255,83,100,0.22); color:#ff97a2; padding:5px 9px; border-radius:7px; flex-shrink:0; }
+  .member-delete:hover{ background:rgba(255,83,100,0.18); }
   .member-reset:hover{ background:rgba(191,230,251,0.08); }
 
   .refresh-btn{
@@ -1305,6 +1308,19 @@
   </div>
 </div>
 
+<!-- ================= DELETE MEMBER MINI-MODAL ================= -->
+<div class="mini-modal-overlay" id="dm-overlay"></div>
+<div class="mini-modal" id="dm-modal">
+  <h3 style="font-family:var(--font-display); font-size:16px; margin-bottom:6px;">Remove "<span id="dm-member-name"></span>"?</h3>
+  <p style="font-size:12.5px; color:var(--text-lo); margin-bottom:18px; line-height:1.5;">
+    Their PIN stops working immediately. Any checklist items currently assigned to them will fall back to <strong>Unassigned</strong> so you can hand them to someone else — nothing about the work itself is deleted.
+  </p>
+  <div class="modal-actions">
+    <button class="btn-cancel" id="dm-cancel" style="flex:1;">Cancel</button>
+    <button id="dm-confirm" style="flex:1; background:linear-gradient(180deg,var(--red),#c73b4a); border:none; color:#fff; font-weight:700; border-radius:9px; font-size:13px; padding:11px;">Remove member</button>
+  </div>
+</div>
+
 <!-- ================= TASK DETAIL DRAWER ================= -->
 <div class="drawer" id="task-drawer">
   <div class="drawer-head">
@@ -1819,7 +1835,10 @@
             </div>
             <div class="member-actions">
               <span class="member-pin" title="Visible to MD only">${escapeHtml(m.pin || '----')}</span>
-              <button class="member-reset" onclick="openResetPinModal('${dept}', ${idx})">Reset PIN</button>
+              <div class="member-action-row">
+                <button class="member-reset" onclick="openResetPinModal('${dept}', ${idx})">Reset PIN</button>
+                <button class="member-delete" onclick="openDeleteMemberModal('${dept}', ${idx})" title="Remove member">&times;</button>
+              </div>
             </div>
           </div>
         `).join('')}
@@ -2156,6 +2175,53 @@
     });
     showToast(`"${p.name}" removed from dashboard. Drive folder kept, marked (Archived).`);
     archiveDriveFolderForProject(p.name);
+  });
+
+  // ---------------- DELETE MEMBER (reassigns their items to Unassigned) ----------------
+  let memberPendingDelete = null;
+  function openDeleteMemberModal(dept, idx){
+    const m = teamMembers[dept][idx];
+    if(!m) return;
+    memberPendingDelete = { dept, idx };
+    document.getElementById('dm-member-name').textContent = `${m.name} — ${dept}`;
+    document.getElementById('dm-overlay').classList.add('show');
+    document.getElementById('dm-modal').classList.add('show');
+  }
+  function closeDeleteMemberModal(){
+    document.getElementById('dm-overlay').classList.remove('show');
+    document.getElementById('dm-modal').classList.remove('show');
+    memberPendingDelete = null;
+  }
+  document.getElementById('dm-cancel').addEventListener('click', closeDeleteMemberModal);
+  document.getElementById('dm-overlay').addEventListener('click', closeDeleteMemberModal);
+  document.getElementById('dm-confirm').addEventListener('click', () => {
+    if(!memberPendingDelete) return;
+    const { dept, idx } = memberPendingDelete;
+    const m = teamMembers[dept][idx];
+    if(!m) return;
+    const label = `${m.name} — ${dept}`;
+
+    // Reassign anything currently pointing at them, across every project/stage,
+    // so nothing is left silently referencing someone who no longer exists.
+    let reassignedCount = 0;
+    Object.values(stagesData).forEach(stages => {
+      stages.forEach(stage => {
+        stage.items.forEach(item => {
+          if(item.assigned === label){ item.assigned = 'Unassigned'; reassignedCount++; }
+        });
+      });
+    });
+
+    teamMembers[dept].splice(idx, 1);
+    renderTeamView();
+    closeDeleteMemberModal();
+    activityLog.unshift({
+      date: new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }),
+      time: new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }),
+      actor: 'Rabin Roy (MD)', dept, project: '—',
+      text: `Removed team member ${label}.${reassignedCount ? ' ' + reassignedCount + ' checklist item(s) set to Unassigned.' : ''}`
+    });
+    showToast(`${m.name} removed.${reassignedCount ? ' ' + reassignedCount + ' item(s) now Unassigned.' : ''}`);
   });
 
   function closeModal(){ overlay.classList.remove('show'); assignModal.classList.remove('show'); }
