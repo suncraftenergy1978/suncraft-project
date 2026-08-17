@@ -1413,6 +1413,10 @@
   }
 
   async function fetchDriveStorageQuota(){
+    if(!driveAccessToken){
+      document.getElementById('drive-storage-label').textContent = 'Sign-in expired';
+      return null;
+    }
     try{
       const data = await driveFetch('about?fields=storageQuota');
       const used = parseInt(data.storageQuota.usage, 10);
@@ -1422,7 +1426,8 @@
       document.getElementById('drive-storage-fill').style.width = limit ? Math.min(100, (used/limit)*100) + '%' : '4%';
       return { used, limit };
     } catch(e){
-      document.getElementById('drive-storage-label').textContent = 'Sign-in expired';
+      console.error('Drive storage quota error:', e);
+      document.getElementById('drive-storage-label').textContent = 'API error';
       return null;
     }
   }
