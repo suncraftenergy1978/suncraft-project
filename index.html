@@ -933,8 +933,8 @@
       </div>
       <div class="topbar-right">
         <div class="storage-meter">
-          <div class="label"><span>🔗 Google Drive</span><span>1.4 GB / 15 GB</span></div>
-          <div class="storage-bar"><div class="storage-bar-fill" style="width:9%;"></div></div>
+          <div class="label"><span>🔗 Google Drive</span><span id="drive-storage-label">Checking…</span></div>
+          <div class="storage-bar"><div class="storage-bar-fill" id="drive-storage-fill" style="width:0%;"></div></div>
         </div>
         <div class="md-chip">
           <div class="md-avatar">RR</div>
@@ -1273,6 +1273,19 @@
   </div>
 </div>
 
+<!-- ================= NEW PROJECT MINI-MODAL ================= -->
+<div class="mini-modal-overlay" id="np-overlay"></div>
+<div class="mini-modal" id="np-modal">
+  <h3 style="font-family:var(--font-display); font-size:16px; margin-bottom:6px;">New project</h3>
+  <p style="font-size:12.5px; color:var(--text-lo); margin-bottom:16px;">Creates the project and its Google Drive folder (with a subfolder per department).</p>
+  <div class="field"><label>Project name</label><input type="text" id="np-name" placeholder="e.g. Reliance Kutch 200MW" /></div>
+  <div class="field"><label>Client</label><input type="text" id="np-client" placeholder="e.g. Reliance New Energy" /></div>
+  <div class="modal-actions" style="margin-top:18px;">
+    <button class="btn-cancel" id="np-cancel" style="flex:1;">Cancel</button>
+    <button class="btn-primary" id="np-add" style="flex:1;">Create project</button>
+  </div>
+</div>
+
 <!-- ================= TASK DETAIL DRAWER ================= -->
 <div class="drawer" id="task-drawer">
   <div class="drawer-head">
@@ -1372,6 +1385,146 @@
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ0cXlrbmd4b2h4dnBxZGR2ZnJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4MjEyNzAsImV4cCI6MjEwMjM5NzI3MH0.FoP4s4-7OjrGOs0Ti8UDpkOn8NeC8pMb58JaBUgyHho';
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+  // ---------------- GOOGLE DRIVE INTEGRATION ----------------
+  // driveAccessToken only exists for the current browser session (the token
+  // Google issues expires in ~1hr and Supabase doesn't silently refresh it —
+  // a fully persistent version needs a server-side refresh flow, a later phase).
+  let driveAccessToken = null;
+  let driveRootFolderId = null;
+  const driveFolderCache = {}; // "parentId::name" -> folder id, avoids duplicate API calls
+
+  function formatBytes(bytes){
+    if(bytes == null) return '—';
+    const gb = bytes / (1024**3);
+    if(gb >= 1) return gb.toFixed(1) + ' GB';
+    return (bytes / (1024**2)).toFixed(0) + ' MB';
+  }
+
+  async function driveFetch(path, options){
+    const res = await fetch('https://www.googleapis.com/drive/v3/' + path, {
+      ...options,
+      headers: { 'Authorization': 'Bearer ' + driveAccessToken, 'Content-Type': 'application/json', ...(options && options.headers) }
+    });
+    if(!res.ok){
+      const body = await res.text();
+      throw new Error('Drive API error ' + res.status + ': ' + body);
+    }
+    return res.json();
+  }
+
+  async function fetchDriveStorageQuota(){
+    try{
+      const data = await driveFetch('about?fields=storageQuota');
+      const used = parseInt(data.storageQuota.usage, 10);
+      const limit = data.storageQuota.limit ? parseInt(data.storageQuota.limit, 10) : null;
+      const label = limit ? `${formatBytes(used)} / ${formatBytes(limit)}` : `${formatBytes(used)} used`;
+      document.getElementById('drive-storage-label').textContent = label;
+      document.getElementById('drive-storage-fill').style.width = limit ? Math.min(100, (used/limit)*100) + '%' : '4%';
+      return { used, limit };
+    } catch(e){
+      document.getElementById('drive-storage-label').textContent = 'Sign-in expired';
+      return null;
+    }
+  }
+
+  // Finds a folder by name under a parent, creating it if it doesn't exist yet.
+  async function findOrCreateDriveFolder(name, parentId){
+    const cacheKey = (parentId||'root') + '::' + name;
+    if(driveFolderCache[cacheKey]) return driveFolderCache[cacheKey];
+
+    const parentClause = parentId ? `'${parentId}' in parents` : `'root' in parents`;
+    const q = encodeURIComponent(`name='${name.replace(/'/g,"\\'")}' and mimeType='application/vnd.google-apps.folder' and ${parentClause} and trashed=false`);
+    const found = await driveFetch(`files?q=${q}&fields=files(id,name)`);
+    if(found.files && found.files.length > 0){
+      driveFolderCache[cacheKey] = found.files[0].id;
+      return found.files[0].id;
+    }
+
+    const created = await driveFetch('files', {
+      method: 'POST',
+      body: JSON.stringify({
+        name,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: parentId ? [parentId] : undefined
+      })
+    });
+    driveFolderCache[cacheKey] = created.id;
+    return created.id;
+  }
+
+  async function ensureDriveRoot(){
+    if(!driveRootFolderId) driveRootFolderId = await findOrCreateDriveFolder('SunCraft Project', null);
+    return driveRootFolderId;
+  }
+
+  // Ensures project_folder/department_folder exists for every current
+  // project x department combination — call after login, and again whenever
+  // a project or department is added.
+  async function syncDriveFolders(){
+    if(!driveAccessToken) return;
+    document.getElementById('drive-storage-label').textContent = 'Syncing…';
+    try{
+      const rootId = await ensureDriveRoot();
+      const depts = Object.keys(teamMembers);
+      for(const p of projects){
+        const projFolderId = await findOrCreateDriveFolder(p.name, rootId);
+        for(const dept of depts){
+          await findOrCreateDriveFolder(dept, projFolderId);
+        }
+      }
+      await fetchDriveStorageQuota();
+      showToast('Google Drive folders synced.');
+    } catch(e){
+      document.getElementById('drive-storage-label').textContent = 'Sync failed';
+      showToast('Could not sync Google Drive — try signing in again.');
+    }
+  }
+
+  // Ensures just one project's department folders exist (used right after
+  // "+ New Project", so we're not re-scanning every project every time).
+  async function ensureDriveFoldersForProject(projectName){
+    if(!driveAccessToken) return;
+    try{
+      const rootId = await ensureDriveRoot();
+      const projFolderId = await findOrCreateDriveFolder(projectName, rootId);
+      for(const dept of Object.keys(teamMembers)){
+        await findOrCreateDriveFolder(dept, projFolderId);
+      }
+      await fetchDriveStorageQuota();
+    } catch(e){ /* silent — storage label already shows sign-in state */ }
+  }
+
+  // Ensures one new department's folder exists inside every existing project.
+  async function ensureDriveFoldersForDepartment(deptName){
+    if(!driveAccessToken) return;
+    try{
+      const rootId = await ensureDriveRoot();
+      for(const p of projects){
+        const projFolderId = await findOrCreateDriveFolder(p.name, rootId);
+        await findOrCreateDriveFolder(deptName, projFolderId);
+      }
+      await fetchDriveStorageQuota();
+    } catch(e){ /* silent */ }
+  }
+
+  // Real per-project folder size — sums file sizes one level inside each
+  // department subfolder (matches our root/Project/Department structure).
+  async function computeProjectFolderSize(projectName){
+    if(!driveAccessToken) return null;
+    try{
+      const rootId = await ensureDriveRoot();
+      const projFolderId = await findOrCreateDriveFolder(projectName, rootId);
+      const deptFolders = await driveFetch(`files?q=${encodeURIComponent(`'${projFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`)}&fields=files(id)`);
+      let total = 0;
+      for(const folder of (deptFolders.files || [])){
+        const files = await driveFetch(`files?q=${encodeURIComponent(`'${folder.id}' in parents and trashed=false`)}&fields=files(size)`);
+        (files.files || []).forEach(f => { if(f.size) total += parseInt(f.size, 10); });
+      }
+      return total;
+    } catch(e){ return null; }
+  }
+
+
   // ---------------- LOGIN (role select → MD: PIN + Google / Team: dept + PIN) ----------------
   const loginView = document.getElementById('login-view');
   const appView = document.getElementById('app-view');
@@ -1451,7 +1604,8 @@
       provider: 'google',
       options: {
         redirectTo: 'https://suncraft-project.netlify.app',
-        queryParams: { prompt: 'select_account' }
+        queryParams: { prompt: 'select_account' },
+        scopes: 'https://www.googleapis.com/auth/drive'
       }
     });
     if(error){
@@ -1484,7 +1638,10 @@
       return;
     }
     document.getElementById('md-google-card').style.display = 'none';
+    driveAccessToken = session.provider_token || null;
     enterMDConsole(session.user.email);
+    if(driveAccessToken) syncDriveFolders();
+    else document.getElementById('drive-storage-label').textContent = 'Not connected';
   }
 
   // Catch the redirect back from Google, however Supabase reports it.
@@ -1589,6 +1746,16 @@
       content.style.display = 'block';
       document.getElementById('breadcrumb').innerHTML = `<b onclick="goDashboard()">All Projects</b> &nbsp;/&nbsp; <b onclick="switchView('project')">Project Details</b> &nbsp;/&nbsp; ${p.name}`;
       renderStagesGrid(currentProjectId);
+
+      const storageLabel = document.getElementById('proj-storage-label');
+      if(driveAccessToken){
+        storageLabel.textContent = 'Checking…';
+        computeProjectFolderSize(p.name).then(bytes => {
+          storageLabel.textContent = bytes == null ? 'Unavailable' : formatBytes(bytes) + ' used';
+        });
+      } else {
+        storageLabel.textContent = 'Sign in with Google to see this';
+      }
     } else {
       empty.style.display = 'block';
       content.style.display = 'none';
@@ -1732,6 +1899,7 @@
     renderTeamView();
     closeAddDepartmentModal();
     showToast(`"${name}" department added. Go to Team Management to add members to it.`);
+    if(driveAccessToken) ensureDriveFoldersForDepartment(name);
   });
 
   // ---------------- REFRESH BUTTONS ----------------
@@ -1741,7 +1909,7 @@
     void el.offsetWidth;
     el.classList.add('spin');
   }
-  function refreshDashboard(el){ spinRefresh(el); animateCounters(); renderProjectGrid(); showToast('Dashboard refreshed.'); }
+  function refreshDashboard(el){ spinRefresh(el); animateCounters(); renderProjectGrid(); if(driveAccessToken) fetchDriveStorageQuota(); showToast('Dashboard refreshed.'); }
   function refreshProjectDetails(el){ spinRefresh(el); if(currentProjectId){ renderProjectDetailsView(); } else { showToast('Choose a project first.'); return; } showToast('Project details refreshed.'); }
   function refreshTeamView(el){ spinRefresh(el); renderTeamView(); showToast('Team list refreshed.'); }
   function refreshSettings(el){ spinRefresh(el); showToast('Settings refreshed.'); }
@@ -1875,9 +2043,31 @@
       overlay.classList.add('show'); assignModal.classList.add('show');
     });
   }
-  document.getElementById('new-project-btn').addEventListener('click', ()=>{
-    showToast('New Project flow — coming in the next build phase.');
+  document.getElementById('new-project-btn').addEventListener('click', () => {
+    document.getElementById('np-name').value = '';
+    document.getElementById('np-client').value = '';
+    document.getElementById('np-overlay').classList.add('show');
+    document.getElementById('np-modal').classList.add('show');
   });
+  function closeNewProjectModal(){
+    document.getElementById('np-overlay').classList.remove('show');
+    document.getElementById('np-modal').classList.remove('show');
+  }
+  document.getElementById('np-cancel').addEventListener('click', closeNewProjectModal);
+  document.getElementById('np-overlay').addEventListener('click', closeNewProjectModal);
+  document.getElementById('np-add').addEventListener('click', async () => {
+    const name = document.getElementById('np-name').value.trim();
+    const client = document.getElementById('np-client').value.trim();
+    if(!name){ showToast('Please enter a project name.'); return; }
+    const id = 'p' + (projects.length + 1) + '_' + Date.now();
+    projects.push({ id, name, client: client || '—', red:0, yellow:0, green:0, updated:'just now' });
+    renderProjectGrid();
+    populateProjectDropdown();
+    closeNewProjectModal();
+    showToast(`"${name}" created. Note: project list isn't database-backed yet — this stays only in this browser session.`);
+    if(driveAccessToken) ensureDriveFoldersForProject(name);
+  });
+
   function closeModal(){ overlay.classList.remove('show'); assignModal.classList.remove('show'); }
   document.getElementById('modal-cancel').addEventListener('click', closeModal);
   overlay.addEventListener('click', ()=>{ closeModal(); closeDrawer(); });
