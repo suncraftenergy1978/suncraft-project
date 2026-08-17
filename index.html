@@ -962,10 +962,10 @@
     <!-- LEVEL 1: DASHBOARD -->
     <div id="dashboard-view">
       <div class="stat-strip">
-        <div class="stat-card stat-total"><div class="num" data-count="6">0</div><div class="lbl">Total Projects</div></div>
-        <div class="stat-card stat-red"><div class="num" data-count="9">0</div><div class="lbl">Pending (Red)</div></div>
-        <div class="stat-card stat-yellow"><div class="num" data-count="5">0</div><div class="lbl">Awaiting Review</div></div>
-        <div class="stat-card stat-green"><div class="num" data-count="14">0</div><div class="lbl">Approved (Green)</div></div>
+        <div class="stat-card stat-total"><div class="num" id="stat-total" data-count="0">0</div><div class="lbl">Total Projects</div></div>
+        <div class="stat-card stat-red"><div class="num" id="stat-red" data-count="0">0</div><div class="lbl">Pending (Red)</div></div>
+        <div class="stat-card stat-yellow"><div class="num" id="stat-yellow" data-count="0">0</div><div class="lbl">Awaiting Review</div></div>
+        <div class="stat-card stat-green"><div class="num" id="stat-green" data-count="0">0</div><div class="lbl">Approved (Green)</div></div>
       </div>
 
       <div class="section-head">
@@ -1607,7 +1607,6 @@
   function enterMDConsole(connectedEmail){
     loginView.style.display = 'none';
     appView.style.display = 'block';
-    animateCounters();
     renderProjectGrid();
     populateProjectDropdown();
     renderTeamView();
@@ -1721,6 +1720,7 @@
     if(error || !isMD){
       mdClaimStarted = false;
       await sb.auth.signOut();
+      history.replaceState(null, '', window.location.pathname);
       document.getElementById('role-select-card').style.display = 'none';
       document.getElementById('md-pin-card').style.display = 'none';
       document.getElementById('md-google-card').style.display = 'block';
@@ -1729,6 +1729,7 @@
     }
     document.getElementById('md-google-card').style.display = 'none';
     driveAccessToken = session.provider_token || null;
+    history.replaceState(null, '', window.location.pathname);
 
     if(intent === 'md_recovery'){
       pendingRecoverySession = session;
@@ -1810,19 +1811,36 @@
   // ---------------- DASHBOARD (LEVEL 1) ----------------
   function renderProjectGrid(){
     const grid = document.getElementById('project-grid');
-    grid.innerHTML = projects.map(p => `
-      <div class="project-card" onclick="openProject('${p.id}')">
-        <button class="project-card-delete" onclick="event.stopPropagation(); openDeleteProjectModal('${p.id}');" title="Delete project">&times;</button>
-        <div class="pname">${p.name}</div>
-        <div class="pclient">${p.client}</div>
-        <div class="pill-row">
-          <span class="pill pill-red"><span class="pill-dot"></span>${p.red} Red</span>
-          <span class="pill pill-yellow"><span class="pill-dot"></span>${p.yellow} Yellow</span>
-          <span class="pill pill-green"><span class="pill-dot"></span>${p.green} Green</span>
+    if(projects.length === 0){
+      grid.innerHTML = `<p style="grid-column:1/-1; color:var(--text-lo); font-size:13px; padding:20px 0;">No projects yet. Click "+ New Project" to create one.</p>`;
+    } else {
+      grid.innerHTML = projects.map(p => `
+        <div class="project-card" onclick="openProject('${p.id}')">
+          <button class="project-card-delete" onclick="event.stopPropagation(); openDeleteProjectModal('${p.id}');" title="Delete project">&times;</button>
+          <div class="pname">${p.name}</div>
+          <div class="pclient">${p.client}</div>
+          <div class="pill-row">
+            <span class="pill pill-red"><span class="pill-dot"></span>${p.red} Red</span>
+            <span class="pill pill-yellow"><span class="pill-dot"></span>${p.yellow} Yellow</span>
+            <span class="pill pill-green"><span class="pill-dot"></span>${p.green} Green</span>
+          </div>
+          <div class="card-foot"><span>${p.red+p.yellow+p.green} tasks total</span><span>Updated ${p.updated}</span></div>
         </div>
-        <div class="card-foot"><span>${p.red+p.yellow+p.green} tasks total</span><span>Updated ${p.updated}</span></div>
-      </div>
-    `).join('');
+      `).join('');
+    }
+    refreshDashboardStats();
+  }
+
+  function refreshDashboardStats(){
+    const totals = projects.reduce((acc, p) => {
+      acc.red += p.red; acc.yellow += p.yellow; acc.green += p.green;
+      return acc;
+    }, { red:0, yellow:0, green:0 });
+    document.getElementById('stat-total').setAttribute('data-count', projects.length);
+    document.getElementById('stat-red').setAttribute('data-count', totals.red);
+    document.getElementById('stat-yellow').setAttribute('data-count', totals.yellow);
+    document.getElementById('stat-green').setAttribute('data-count', totals.green);
+    animateCounters();
   }
 
   // ---------------- SIDEBAR NAVIGATION ----------------
@@ -2043,7 +2061,7 @@
     void el.offsetWidth;
     el.classList.add('spin');
   }
-  function refreshDashboard(el){ spinRefresh(el); animateCounters(); renderProjectGrid(); if(driveAccessToken) fetchDriveStorageQuota(); showToast('Dashboard refreshed.'); }
+  function refreshDashboard(el){ spinRefresh(el); renderProjectGrid(); if(driveAccessToken) fetchDriveStorageQuota(); showToast('Dashboard refreshed.'); }
   function refreshProjectDetails(el){ spinRefresh(el); if(currentProjectId){ renderProjectDetailsView(); } else { showToast('Choose a project first.'); return; } showToast('Project details refreshed.'); }
   function refreshTeamView(el){ spinRefresh(el); renderTeamView(); showToast('Team list refreshed.'); }
   function renderFormerMembers(){
