@@ -1437,24 +1437,30 @@
     const cacheKey = (parentId||'root') + '::' + name;
     if(driveFolderCache[cacheKey]) return driveFolderCache[cacheKey];
 
-    const parentClause = parentId ? `'${parentId}' in parents` : `'root' in parents`;
-    const q = encodeURIComponent(`name='${name.replace(/'/g,"\\'")}' and mimeType='application/vnd.google-apps.folder' and ${parentClause} and trashed=false`);
-    const found = await driveFetch(`files?q=${q}&fields=files(id,name)`);
-    if(found.files && found.files.length > 0){
-      driveFolderCache[cacheKey] = found.files[0].id;
-      return found.files[0].id;
-    }
+    // Cache the in-flight promise itself, synchronously, before any await —
+    // so a second call arriving a moment later reuses this same request
+    // instead of racing it and creating a duplicate folder.
+    const promise = (async () => {
+      const parentClause = parentId ? `'${parentId}' in parents` : `'root' in parents`;
+      const q = encodeURIComponent(`name='${name.replace(/'/g,"\\'")}' and mimeType='application/vnd.google-apps.folder' and ${parentClause} and trashed=false`);
+      const found = await driveFetch(`files?q=${q}&fields=files(id,name)`);
+      if(found.files && found.files.length > 0) return found.files[0].id;
 
-    const created = await driveFetch('files', {
-      method: 'POST',
-      body: JSON.stringify({
-        name,
-        mimeType: 'application/vnd.google-apps.folder',
-        parents: parentId ? [parentId] : undefined
-      })
-    });
-    driveFolderCache[cacheKey] = created.id;
-    return created.id;
+      const created = await driveFetch('files', {
+        method: 'POST',
+        body: JSON.stringify({
+          name,
+          mimeType: 'application/vnd.google-apps.folder',
+          parents: parentId ? [parentId] : undefined
+        })
+      });
+      return created.id;
+    })();
+
+    driveFolderCache[cacheKey] = promise;
+    const id = await promise;
+    driveFolderCache[cacheKey] = id; // replace with the resolved id once known
+    return id;
   }
 
   async function ensureDriveRoot(){
@@ -1626,9 +1632,11 @@
   // Handles the moment we detect a real signed-in session with intent=md,
   // regardless of exactly which Supabase event name reported it (the event
   // name Supabase uses here can vary depending on load timing).
+  let mdClaimStarted = false;
   async function tryClaimMD(session){
     const intent = sessionStorage.getItem('sc_login_intent');
-    if(intent !== 'md' || !session) return;
+    if(intent !== 'md' || !session || mdClaimStarted) return;
+    mdClaimStarted = true;
 
     document.getElementById('md-google-loading').style.display = 'block';
     const { data: isMD, error } = await sb.rpc('claim_md_role');
@@ -1636,6 +1644,7 @@
     document.getElementById('md-google-loading').style.display = 'none';
 
     if(error || !isMD){
+      mdClaimStarted = false;
       await sb.auth.signOut();
       document.getElementById('role-select-card').style.display = 'none';
       document.getElementById('md-pin-card').style.display = 'none';
@@ -1665,6 +1674,9 @@
 
   document.getElementById('logout-btn').addEventListener('click', async function(){
     await sb.auth.signOut();
+    mdClaimStarted = false;
+    driveAccessToken = null;
+    driveRootFolderId = null;
     appView.style.display = 'none';
     showRoleSelect();
     goDashboard();
