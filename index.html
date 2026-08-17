@@ -2540,42 +2540,23 @@
     ]
   };
 
-  // ============= STAGE DATA FALLBACK (projects without a hand-authored sheet) =============
-  function splitWeightsSimple(n, seed){
-    const raw = [];
-    for(let i=0;i<n;i++){ raw.push(10 + ((seed*(i+3)) % 40)); }
-    const sum = raw.reduce((a,b)=>a+b,0);
-    const weights = raw.map(v => Math.round(v/sum*100));
-    const diff = 100 - weights.reduce((a,b)=>a+b,0);
-    weights[weights.length-1] += diff;
-    return weights;
-  }
-
+  // ============= STAGE DATA (projects without a hand-authored sheet start blank) =============
   function ensureStageData(projectId){
     if(stagesData[projectId]) return stagesData[projectId];
-    const project = projects.find(p => p.id === projectId);
-    const seedBase = project ? (project.id.charCodeAt(1) || 0) : 1;
     const stageDefs = [
-      { id:'tender', name:'Tender', color:'#ffc93c', desc:'Bid documentation, tender submission and award status.', names:['Bid Submission','Technical Bid Evaluation','BG & Other Activity','LOA / Award'] },
-      { id:'design', name:'Design', color:'#46b8f0', desc:'SLDs, layout drawings, structural and electrical design sign-off.', names:['Concept Layout','Detailed Engineering (SLD/GA)','Structural Sign-off','Client Approval'] },
-      { id:'procurement', name:'Procurement', color:'#22a06b', desc:'Vendor quotations, PO issuance and material delivery tracking.', names:['Vendor RFQ & Comparison','PO Issuance','Material Dispatch','Site Delivery & GRN'] },
-      { id:'execution', name:'Execution', color:'#ff9142', desc:'Site civil, mechanical and electrical installation progress.', names:['Civil Work','Mechanical Mounting','Electrical Installation','Testing & Punch List'] },
-      { id:'commissioning', name:'Commissioning', color:'#ff5364', desc:'Testing, grid synchronization and handover.', names:['Pre-commissioning Checks','Grid Synchronization','Performance Testing','Handover & Documentation'] },
+      { id:'tender', name:'Tender', color:'#ffc93c', desc:'Bid documentation, tender submission and award status.' },
+      { id:'design', name:'Design', color:'#46b8f0', desc:'SLDs, layout drawings, structural and electrical design sign-off.' },
+      { id:'procurement', name:'Procurement', color:'#22a06b', desc:'Vendor quotations, PO issuance and material delivery tracking.' },
+      { id:'execution', name:'Execution', color:'#ff9142', desc:'Site civil, mechanical and electrical installation progress.' },
+      { id:'commissioning', name:'Commissioning', color:'#ff5364', desc:'Testing, grid synchronization and handover.' },
     ];
-    const stages = stageDefs.map((sd, si) => {
-      const seed = seedBase + si*7 + 3;
-      const weights = splitWeightsSimple(sd.names.length, seed);
-      const targetPct = 15 + (seed*13) % 60;
-      let cum = 0;
-      const items = sd.names.map((nm, i) => {
-        const w = weights[i];
-        let achieved = 0;
-        if(cum + w <= targetPct){ achieved = w; cum += w; }
-        return { id:i+1, title:nm, assigned:'Unassigned', weight:w, achieved, approved:false, approvedBy:null, files: [], assignment:'Not yet started', description:'Task item under this stage.', assignedDate:'12 Aug 2026' };
-      });
-      const achievedSum = items.reduce((a,i)=>a+i.achieved, 0);
-      return { id:sd.id, name:sd.name, color:sd.color, desc:sd.desc, progress:achievedSum, status: achievedSum===0 ? 'not-started' : 'awaiting', items };
-    });
+    // Every real project starts completely blank — no fabricated checklist
+    // items. MD builds each stage's weighted sheet from scratch via
+    // "+ Add new item" once real work actually exists to track.
+    const stages = stageDefs.map(sd => ({
+      id: sd.id, name: sd.name, color: sd.color, desc: sd.desc,
+      progress: 0, status: 'not-started', items: []
+    }));
     stagesData[projectId] = stages;
     return stages;
   }
