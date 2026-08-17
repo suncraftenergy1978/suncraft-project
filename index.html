@@ -1906,7 +1906,7 @@
   const VIEW_IDS = { dashboard:'dashboard-view', project:'project-view', team:'team-view', settings:'settings-view', reports:'reports-view' };
   const VIEW_LABELS = { team:'Team Management', settings:'Settings', reports:'Reports Corner' };
 
-  function switchView(view){
+  async function switchView(view){
     currentView = view;
     Object.values(VIEW_IDS).forEach(id => document.getElementById(id).style.display = 'none');
     document.getElementById(VIEW_IDS[view]).style.display = 'block';
@@ -1918,7 +1918,7 @@
     if(view === 'dashboard'){
       document.getElementById('breadcrumb').innerHTML = `<b onclick="goDashboard()">All Projects</b>`;
     } else if(view === 'project'){
-      renderProjectDetailsView();
+      await renderProjectDetailsView();
     } else {
       document.getElementById('breadcrumb').innerHTML = `<b onclick="goDashboard()">All Projects</b> &nbsp;/&nbsp; ${VIEW_LABELS[view]}`;
     }
@@ -1941,7 +1941,7 @@
       projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
   }
 
-  function renderProjectDetailsView(){
+  async function renderProjectDetailsView(forceReload){
     const select = document.getElementById('pd-project-select');
     if(select) select.value = currentProjectId || '';
     const empty = document.getElementById('project-empty-state');
@@ -1952,7 +1952,7 @@
       empty.style.display = 'none';
       content.style.display = 'block';
       document.getElementById('breadcrumb').innerHTML = `<b onclick="goDashboard()">All Projects</b> &nbsp;/&nbsp; <b onclick="switchView('project')">Project Details</b> &nbsp;/&nbsp; ${p.name}`;
-      renderStagesGrid(currentProjectId);
+      await renderStagesGrid(currentProjectId, forceReload);
 
       const storageLabel = document.getElementById('proj-storage-label');
       if(driveAccessToken){
@@ -2140,7 +2140,7 @@
     if(driveAccessToken) fetchDriveStorageQuota();
     showToast('Dashboard refreshed.');
   }
-  function refreshProjectDetails(el){ spinRefresh(el); if(currentProjectId){ renderProjectDetailsView(); } else { showToast('Choose a project first.'); return; } showToast('Project details refreshed.'); }
+  function refreshProjectDetails(el){ spinRefresh(el); if(currentProjectId){ renderProjectDetailsView(true); } else { showToast('Choose a project first.'); return; } showToast('Project details refreshed.'); }
   async function refreshTeamView(el){
     spinRefresh(el);
     await loadTeamMembersFromDB();
@@ -2276,11 +2276,11 @@
     showToast(`Daily Progress Report PDF downloaded (${filtered.length} entries).`);
   }
 
-  function exportProjectPDF(){
+  async function exportProjectPDF(){
     const projectId = document.getElementById('report-project-select').value;
     const project = projects.find(p => p.id === projectId);
     if(!project){ showToast('Select a project first.'); return; }
-    projects.forEach(p => ensureStageData(p.id));
+    const stages = await ensureStageData(projectId, true);
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit:'mm', format:'a4' });
@@ -2292,7 +2292,7 @@
     doc.text(`Client: ${project.client || '—'} · Generated ${pdfDateStamp()}`, 10, y); y += 8;
 
     const rows = [];
-    (stagesData[projectId] || []).forEach(stage => {
+    stages.forEach(stage => {
       stage.items.forEach(item => {
         rows.push([
           stage.name, item.title, item.assigned || 'Unassigned', item.weight + '%',
@@ -2593,31 +2593,74 @@
   };
 
   // ============= STAGE DATA (projects without a hand-authored sheet start blank) =============
-  function ensureStageData(projectId){
-    if(stagesData[projectId]) return stagesData[projectId];
-    const stageDefs = [
-      { id:'tender', name:'Tender', color:'#ffc93c', desc:'Bid documentation, tender submission and award status.' },
-      { id:'design', name:'Design', color:'#46b8f0', desc:'SLDs, layout drawings, structural and electrical design sign-off.' },
-      { id:'procurement', name:'Procurement', color:'#22a06b', desc:'Vendor quotations, PO issuance and material delivery tracking.' },
-      { id:'execution', name:'Execution', color:'#ff9142', desc:'Site civil, mechanical and electrical installation progress.' },
-      { id:'commissioning', name:'Commissioning', color:'#ff5364', desc:'Testing, grid synchronization and handover.' },
-    ];
-    // Every real project starts completely blank — no fabricated checklist
-    // items. MD builds each stage's weighted sheet from scratch via
-    // "+ Add new item" once real work actually exists to track.
-    const stages = stageDefs.map(sd => ({
-      id: sd.id, name: sd.name, color: sd.color, desc: sd.desc,
-      progress: 0, status: 'not-started', items: []
-    }));
+  const STAGE_DEFS = [
+    { key:'tender', name:'Tender', color:'#ffc93c', desc:'Bid documentation, tender submission and award status.' },
+    { key:'design', name:'Design', color:'#46b8f0', desc:'SLDs, layout drawings, structural and electrical design sign-off.' },
+    { key:'procurement', name:'Procurement', color:'#22a06b', desc:'Vendor quotations, PO issuance and material delivery tracking.' },
+    { key:'execution', name:'Execution', color:'#ff9142', desc:'Site civil, mechanical and electrical installation progress.' },
+    { key:'commissioning', name:'Commissioning', color:'#ff5364', desc:'Testing, grid synchronization and handover.' },
+  ];
+
+  function memberLabelFromJoin(tm){
+    if(!tm) return 'Unassigned';
+    const deptName = tm.departments ? tm.departments.name : '—';
+    return `${tm.name} — ${deptName}`;
+  }
+
+  // Loads real stages + checklist items + attachment file names from Supabase.
+  // Creates the 5 stage rows once per project, the first time it's opened —
+  // every project genuinely starts blank, no fabricated demo items.
+  async function ensureStageData(projectId, forceReload){
+    if(!forceReload && stagesData[projectId]) return stagesData[projectId];
+
+    let { data: stageRows, error } = await sb.from('stages').select('*').eq('project_id', projectId);
+    if(error){ showToast('Could not load stages: ' + error.message); return []; }
+
+    if(!stageRows || stageRows.length === 0){
+      const toInsert = STAGE_DEFS.map(sd => ({ project_id: projectId, key: sd.key, name: sd.name, description: sd.desc }));
+      const { data: inserted, error: insErr } = await sb.from('stages').insert(toInsert).select();
+      if(insErr){ showToast('Could not create stages: ' + insErr.message); return []; }
+      stageRows = inserted;
+    }
+
+    const stageIds = stageRows.map(s => s.id);
+    const { data: itemRows, error: itemErr } = await sb.from('checklist_items')
+      .select('*, team_members(name, departments(name))')
+      .in('stage_id', stageIds)
+      .order('created_at');
+    if(itemErr){ showToast('Could not load checklist items: ' + itemErr.message); return []; }
+
+    let filesByItem = {};
+    const itemIds = (itemRows || []).map(it => it.id);
+    if(itemIds.length){
+      const { data: fileRows } = await sb.from('checklist_item_files').select('checklist_item_id, file_name').in('checklist_item_id', itemIds);
+      (fileRows || []).forEach(f => { (filesByItem[f.checklist_item_id] = filesByItem[f.checklist_item_id] || []).push(f.file_name); });
+    }
+
+    const stages = STAGE_DEFS.map(sd => {
+      const row = stageRows.find(s => s.key === sd.key);
+      const items = (itemRows || []).filter(it => it.stage_id === row.id).map(it => ({
+        id: it.id, title: it.title, description: it.description || '',
+        assigned: memberLabelFromJoin(it.team_members), assignedMemberId: it.assigned_member_id,
+        weight: it.weight, achieved: it.achieved, approved: it.approved, approvedBy: it.approved_by,
+        files: filesByItem[it.id] || [],
+        assignment: it.assignment_status || '', teamNotes: it.team_notes || '',
+        assignedDate: it.assigned_date ? new Date(it.assigned_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—'
+      }));
+      const achievedSum = items.reduce((a,i) => a + i.achieved, 0);
+      return { id: sd.key, dbId: row.id, name: sd.name, color: sd.color, desc: sd.desc,
+        progress: achievedSum, status: achievedSum === 0 ? 'not-started' : 'awaiting', items };
+    });
+
     stagesData[projectId] = stages;
     return stages;
   }
 
   // ============= STAGES GRID RENDERING =============
-  function renderStagesGrid(projectId){
+  async function renderStagesGrid(projectId, forceReload){
     const grid = document.getElementById('stages-grid');
     if(!grid) return;
-    const stages = ensureStageData(projectId);
+    const stages = await ensureStageData(projectId, forceReload);
 
     grid.innerHTML = '';
     stages.forEach(stage => {
@@ -2759,30 +2802,50 @@
     if(currentStageProjectId) renderStagesGrid(currentStageProjectId);
   }
 
-  document.getElementById('cl-items').addEventListener('change', (e) => {
+  function resolveMemberIdFromLabel(label){
+    if(label === 'Unassigned') return null;
+    for(const dept of Object.keys(teamMembers)){
+      const m = teamMembers[dept].find(mm => `${mm.name} — ${dept}` === label);
+      if(m) return m.id;
+    }
+    return null;
+  }
+
+  document.getElementById('cl-items').addEventListener('change', async (e) => {
     const el = e.target;
     const field = el.getAttribute('data-field');
     const id = el.getAttribute('data-id');
     if(!field || !id || !currentStageData) return;
     const item = currentStageData.items.find(i => String(i.id) === String(id));
     if(!item) return;
-    if(field === 'title') item.title = el.value.trim() || item.title;
-    else if(field === 'description') item.description = el.value;
-    else if(field === 'assigned') item.assigned = el.value;
-    else if(field === 'weight'){
+
+    const patch = {};
+    if(field === 'title'){ item.title = el.value.trim() || item.title; patch.title = item.title; }
+    else if(field === 'description'){ item.description = el.value; patch.description = item.description; }
+    else if(field === 'assigned'){
+      item.assigned = el.value;
+      item.assignedMemberId = resolveMemberIdFromLabel(el.value);
+      patch.assigned_member_id = item.assignedMemberId;
+    } else if(field === 'weight'){
       item.weight = Math.max(0, Math.min(100, parseInt(el.value, 10) || 0));
       if(item.achieved > item.weight) item.achieved = item.weight;
+      patch.weight = item.weight; patch.achieved = item.achieved;
     } else if(field === 'achieved'){
       item.achieved = Math.max(0, Math.min(item.weight, parseInt(el.value, 10) || 0));
+      patch.achieved = item.achieved;
     }
     renderChecklistItems();
+    const { error } = await sb.from('checklist_items').update(patch).eq('id', item.id);
+    if(error) showToast('Could not save change: ' + error.message);
   });
 
-  document.getElementById('cl-items').addEventListener('click', (e) => {
+  document.getElementById('cl-items').addEventListener('click', async (e) => {
     const closeBtn = e.target.closest('.item-close');
     if(closeBtn && currentStageData){
       if(currentStageData.items.length <= 1){ showToast('A checklist needs at least one item.'); return; }
       const id = closeBtn.getAttribute('data-id');
+      const { error } = await sb.from('checklist_items').delete().eq('id', id);
+      if(error){ showToast('Could not remove item: ' + error.message); return; }
       currentStageData.items = currentStageData.items.filter(i => String(i.id) !== String(id));
       renderChecklistItems();
       return;
@@ -2846,7 +2909,7 @@
   }
   document.getElementById('rs-cancel').addEventListener('click', closeRescheduleModal);
   document.getElementById('reschedule-overlay').addEventListener('click', closeRescheduleModal);
-  document.getElementById('rs-confirm').addEventListener('click', () => {
+  document.getElementById('rs-confirm').addEventListener('click', async () => {
     const item = currentStageData.items.find(i => String(i.id) === String(rescheduleItemId));
     if(!item) return;
     const reason = document.getElementById('rs-reason').value.trim();
@@ -2858,6 +2921,10 @@
     renderChecklistItems();
     closeRescheduleModal();
     showToast(`"${item.title}" sent back to ${item.assigned} for rework.`);
+    const { error } = await sb.from('checklist_items').update({
+      achieved: 0, approved: false, approved_by: null, assignment_status: item.assignment
+    }).eq('id', item.id);
+    if(error) showToast('Could not save reschedule: ' + error.message);
   });
 
   document.getElementById('cl-add-item-btn').addEventListener('click', () => {
@@ -2872,19 +2939,31 @@
   document.getElementById('ai-cancel').addEventListener('click', () => {
     document.getElementById('cl-add-item-form').style.display = 'none';
   });
-  document.getElementById('ai-add').addEventListener('click', () => {
+  document.getElementById('ai-add').addEventListener('click', async () => {
     const name = document.getElementById('ai-name').value.trim();
     const desc = document.getElementById('ai-desc').value.trim();
     const assignee = document.getElementById('ai-assignee').value;
     const weight = Math.max(0, Math.min(100, parseInt(document.getElementById('ai-weight').value, 10) || 0));
     if(!name){ showToast('Please enter an item name.'); return; }
     if(weight <= 0){ showToast('Please enter a weight greater than 0%.'); return; }
-    const nextId = currentStageData.items.length ? Math.max(...currentStageData.items.map(i => i.id)) + 1 : 1;
+
+    const memberId = resolveMemberIdFromLabel(assignee);
+    const { data, error } = await sb.from('checklist_items').insert({
+      stage_id: currentStageData.dbId, title: name, description: desc,
+      assigned_member_id: memberId, weight, achieved: 0,
+      assignment_status: `Assigned to ${assignee} by MD`
+    }).select().single();
+    if(error){ showToast('Could not add item: ' + error.message); return; }
+
     const todayStr = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
-    currentStageData.items.push({ id: nextId, title: name, description: desc, assigned: assignee, weight, achieved: 0, approved: false, approvedBy: null, files: [], assignment: `Assigned to ${assignee} by MD`, assignedDate: todayStr });
+    currentStageData.items.push({
+      id: data.id, title: name, description: desc, assigned: assignee, assignedMemberId: memberId,
+      weight, achieved: 0, approved: false, approvedBy: null, files: [],
+      assignment: `Assigned to ${assignee} by MD`, assignedDate: todayStr
+    });
     renderChecklistItems();
     document.getElementById('cl-add-item-form').style.display = 'none';
-    showToast('Item added to the weight sheet.');
+    showToast('Item added and saved.');
   });
 
   document.getElementById('cl-close').addEventListener('click', () => checklistModal.classList.remove('show'));
@@ -2893,13 +2972,20 @@
     if(currentStageData.weightSum !== 100){ showToast('Weight sheet must total exactly 100% before saving.'); return; }
     showToast(`Weight sheet saved — 100% allocated across ${currentStageData.items.length} item(s).`);
   });
-  document.getElementById('cl-approve-btn').addEventListener('click', () => {
+  document.getElementById('cl-approve-btn').addEventListener('click', async () => {
     if(currentStageData.weightSum !== 100 || currentStageData.progress < 100){ showToast('Sheet must total 100% and all items fully achieved before approval.'); return; }
+    const unapprovedIds = currentStageData.items.filter(i => !i.approved).map(i => i.id);
     currentStageData.items.forEach(i => { if(!i.approved){ i.approved = true; i.approvedBy = 'Rabin Roy (MD)'; } });
     currentStageData.status = 'done';
     renderChecklistItems();
     showToast('Stage approved — all items signed off.');
     checklistModal.classList.remove('show');
+    if(unapprovedIds.length){
+      const { error } = await sb.from('checklist_items')
+        .update({ approved: true, approved_by: 'Rabin Roy (MD)', approved_at: new Date().toISOString() })
+        .in('id', unapprovedIds);
+      if(error) showToast('Could not save approval: ' + error.message);
+    }
   });
 
   // ============= INTEGRATION WITH PROJECT VIEW =============
@@ -3015,25 +3101,29 @@
     return 'Submitted — awaiting MD';
   }
 
-  function renderTeamDashboard(){
+  async function renderTeamDashboard(){
     if(!currentTeamMember) return;
     document.getElementById('tc-member-name').textContent = currentTeamMember.name;
     document.getElementById('tc-member-role').textContent = `${currentTeamMember.designation} · ${currentTeamMember.department}`;
 
-    // make sure every project has stage data generated
-    projects.forEach(p => ensureStageData(p.id));
+    const { data: rows, error } = await sb.from('checklist_items')
+      .select('*, stages(name, project_id, projects(name))')
+      .eq('assigned_member_id', currentTeamMember.id)
+      .order('created_at', { ascending: false });
+    if(error){ showToast('Could not load your tasks: ' + error.message); return; }
 
-    const label = `${currentTeamMember.name} — ${currentTeamMember.department}`;
-    currentTeamTasks = [];
-    projects.forEach(p => {
-      (stagesData[p.id] || []).forEach(stage => {
-        stage.items.forEach(item => {
-          if(item.assigned === label){
-            currentTeamTasks.push({ projectId: p.id, projectName: p.name, stage, item });
-          }
-        });
-      });
-    });
+    currentTeamTasks = (rows || []).filter(r => r.stages && r.stages.projects).map(r => ({
+      projectId: r.stages.project_id,
+      projectName: r.stages.projects.name,
+      stage: { name: r.stages.name },
+      item: {
+        id: r.id, title: r.title, description: r.description || '',
+        weight: r.weight, achieved: r.achieved, approved: r.approved,
+        teamNotes: r.team_notes || '', assignment: r.assignment_status || '',
+        files: [], // loaded when the item is actually opened
+        assignedDate: r.assigned_date ? new Date(r.assigned_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—'
+      }
+    }));
 
     const total = currentTeamTasks.length;
     const pending = currentTeamTasks.filter(t => t.item.achieved <= 0 || (!t.item.approved && t.item.achieved < t.item.weight)).length;
@@ -3086,7 +3176,7 @@
     wrap.innerHTML = item.files.map(f => `<div class="item-file"><span>📎 ${escapeHtml(f)}</span></div>`).join('');
   }
 
-  function openTeamTaskDetail(idx){
+  async function openTeamTaskDetail(idx){
     currentTeamDetailIdx = idx;
     const t = currentTeamTasks[idx];
     const item = t.item;
@@ -3100,7 +3190,7 @@
     document.getElementById('tc-d-desc').textContent = item.description || 'No description provided.';
     document.getElementById('tc-d-notes').value = item.teamNotes || '';
     document.getElementById('tc-d-notes').disabled = locked;
-    renderTcFileList(item);
+    renderTcFileList(item); // show whatever we already have instantly, refine below
 
     document.getElementById('tc-d-attach-row').style.display = locked ? 'none' : 'flex';
     document.getElementById('tc-d-send').style.display = locked ? 'none' : 'block';
@@ -3109,13 +3199,22 @@
 
     document.getElementById('tc-detail-overlay').classList.add('show');
     document.getElementById('tc-detail-modal').classList.add('show');
+
+    const { data: fileRows } = await sb.from('checklist_item_files').select('file_name').eq('checklist_item_id', item.id);
+    item.files = (fileRows || []).map(f => f.file_name);
+    if(currentTeamDetailIdx === idx) renderTcFileList(item);
   }
 
-  function closeTeamTaskDetail(){
+  async function closeTeamTaskDetail(){
     if(currentTeamDetailIdx !== null){
       const t = currentTeamTasks[currentTeamDetailIdx];
       if(t && t.item.achieved < t.item.weight){
-        t.item.teamNotes = document.getElementById('tc-d-notes').value;
+        const notes = document.getElementById('tc-d-notes').value;
+        if(notes !== t.item.teamNotes){
+          t.item.teamNotes = notes;
+          sb.from('checklist_items').update({ team_notes: notes }).eq('id', t.item.id)
+            .then(({ error }) => { if(error) showToast('Could not save notes: ' + error.message); });
+        }
       }
     }
     document.getElementById('tc-detail-overlay').classList.remove('show');
@@ -3126,11 +3225,17 @@
   document.getElementById('tc-d-cancel').addEventListener('click', closeTeamTaskDetail);
   document.getElementById('tc-detail-overlay').addEventListener('click', closeTeamTaskDetail);
 
-  document.getElementById('tc-d-file-picker').addEventListener('change', (e) => {
+  document.getElementById('tc-d-file-picker').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if(!file) return;
     const t = currentTeamTasks[currentTeamDetailIdx];
     if(!t) return;
+
+    const { error } = await sb.from('checklist_item_files').insert({
+      checklist_item_id: t.item.id, file_name: file.name, uploaded_by: currentTeamMember.id
+    });
+    if(error){ showToast('Could not attach file: ' + error.message); return; }
+
     if(!t.item.files) t.item.files = [];
     t.item.files.push(file.name);
     e.target.value = ''; // clear so the same file can be re-selected later if needed
@@ -3138,7 +3243,7 @@
     showToast('File attached: ' + file.name);
   });
 
-  document.getElementById('tc-d-send').addEventListener('click', () => {
+  document.getElementById('tc-d-send').addEventListener('click', async () => {
     const t = currentTeamTasks[currentTeamDetailIdx];
     if(!t) return;
     t.item.teamNotes = document.getElementById('tc-d-notes').value;
@@ -3149,6 +3254,11 @@
     closeTeamTaskDetail();
     renderTeamDashboard();
     showToast('Submitted to MD for review.');
+
+    const { error } = await sb.from('checklist_items').update({
+      achieved: t.item.achieved, team_notes: t.item.teamNotes, assignment_status: t.item.assignment
+    }).eq('id', t.item.id);
+    if(error) showToast('Could not save submission: ' + error.message);
   });
 
   // ============= TOAST ================
