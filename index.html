@@ -937,9 +937,9 @@
           <div class="storage-bar"><div class="storage-bar-fill" style="width:9%;"></div></div>
         </div>
         <div class="md-chip">
-          <div class="md-avatar">RG</div>
+          <div class="md-avatar">RR</div>
           <div>
-            <div class="nm">Rohan Ghosh</div>
+            <div class="nm">Rabin Roy</div>
             <div class="rl">Managing Director</div>
           </div>
         </div>
@@ -1025,9 +1025,9 @@
         <h3>🧭 MD Login PIN</h3>
         <div class="count">Used at the "Sign in as MD" step · visible to you only</div>
         <div class="member-row">
-          <div class="member-avatar">RG</div>
+          <div class="member-avatar">RR</div>
           <div class="member-info">
-            <div class="nm">Rohan Ghosh</div>
+            <div class="nm">Rabin Roy</div>
             <div class="desig">Managing Director</div>
           </div>
           <div class="member-actions">
@@ -1046,7 +1046,7 @@
       <div class="settings-grid">
         <div class="settings-card">
           <h3>👤 Account</h3>
-          <div class="settings-row"><span class="k">Name</span><span class="v">Rohan Ghosh</span></div>
+          <div class="settings-row"><span class="k">Name</span><span class="v">Rabin Roy</span></div>
           <div class="settings-row"><span class="k">Email</span><span class="v">md@suncraftenergy.com</span></div>
           <div class="settings-row"><span class="k">Role</span><span class="v">Managing Director</span></div>
           <div class="settings-row"><button class="btn-ghost" style="width:100%; justify-content:center;">Change password</button></div>
@@ -1339,9 +1339,9 @@
 
   const activityLog = [
     { date:'20 Aug 2026', time:'11:45 AM', actor:'Komal Verma', dept:'Procurement', project:'NTPC Rajgarh 50MW', text:'Uploaded a file and notes for "HT cable vendor quotation".' },
-    { date:'20 Aug 2026', time:'10:12 AM', actor:'Rohan Ghosh (MD)', dept:'—', project:'NTPC Rajgarh 50MW', text:'Approved "Geo-tech soil report review" — status set to Green.' },
+    { date:'20 Aug 2026', time:'10:12 AM', actor:'Rabin Roy (MD)', dept:'—', project:'NTPC Rajgarh 50MW', text:'Approved "Geo-tech soil report review" — status set to Green.' },
     { date:'19 Aug 2026', time:'6:02 PM', actor:'Priya Nair', dept:'Design', project:'Adani Kutch Phase-2', text:'Added task notes for "Single line diagram — Block C".' },
-    { date:'19 Aug 2026', time:'3:20 PM', actor:'Rohan Ghosh (MD)', dept:'—', project:'Tata Power Rooftop — Pune', text:'Created project and auto-assigned 4 default teams.' },
+    { date:'19 Aug 2026', time:'3:20 PM', actor:'Rabin Roy (MD)', dept:'—', project:'Tata Power Rooftop — Pune', text:'Created project and auto-assigned 4 default teams.' },
     { date:'18 Aug 2026', time:'9:40 AM', actor:'Devika Rao', dept:'Finance', project:'NTPC Rajgarh 50MW', text:'Uploaded "Q2 Cost Variance" report.' },
   ];
 
@@ -1673,7 +1673,7 @@
   }
   function openMDPinChangeModal(){
     resetPinTarget = 'MD';
-    document.getElementById('rp-member-name').textContent = 'Rohan Ghosh — Managing Director';
+    document.getElementById('rp-member-name').textContent = 'Rabin Roy — Managing Director';
     document.getElementById('rp-pin').value = generatePin();
     document.getElementById('rp-overlay').classList.add('show');
     document.getElementById('rp-modal').classList.add('show');
@@ -1936,8 +1936,8 @@
         id: 'tender', name: 'Tender', progress: 34, status: 'awaiting', color: '#ffc93c',
         desc: 'Bid documentation, tender submission and award status.',
         items: [
-          { id: 1, title: 'Tender Documentation', assigned: 'Komal Verma — Procurement', weight: 25, achieved: 25, approved: true, approvedBy: 'Rohan Ghosh (MD)', files: ['Tender_Doc_Final.pdf'], assignment: 'Komal completed evaluation and documentation as assigned by MD on 18 Aug 2026', description: 'Review tender document and prepare compliance checklist.', assignedDate: '18 Aug 2026' },
-          { id: 2, title: 'Financial Bid Submission', assigned: 'Ankit Sharma — Procurement', weight: 40, achieved: 40, approved: true, approvedBy: 'Rohan Ghosh (MD)', files: ['Financial_Bid.xlsx'], assignment: 'Ankit submitted bids from 3 vendors as assigned by MD on 17 Aug 2026', description: 'Collect and submit financial bids from shortlisted vendors.', assignedDate: '17 Aug 2026' },
+          { id: 1, title: 'Tender Documentation', assigned: 'Komal Verma — Procurement', weight: 25, achieved: 25, approved: true, approvedBy: 'Rabin Roy (MD)', files: ['Tender_Doc_Final.pdf'], assignment: 'Komal completed evaluation and documentation as assigned by MD on 18 Aug 2026', description: 'Review tender document and prepare compliance checklist.', assignedDate: '18 Aug 2026' },
+          { id: 2, title: 'Financial Bid Submission', assigned: 'Ankit Sharma — Procurement', weight: 40, achieved: 40, approved: true, approvedBy: 'Rabin Roy (MD)', files: ['Financial_Bid.xlsx'], assignment: 'Ankit submitted bids from 3 vendors as assigned by MD on 17 Aug 2026', description: 'Collect and submit financial bids from shortlisted vendors.', assignedDate: '17 Aug 2026' },
           { id: 3, title: 'Technical Compliance Review', assigned: 'Priya Nair — Design', weight: 20, achieved: 0, approved: false, files: [], assignment: 'Awaiting Priya\'s review as assigned by MD', description: 'Verify technical specifications meet tender requirements.', assignedDate: '12 Aug 2026' },
           { id: 4, title: 'Award Letter Processing', assigned: 'Devika Rao — Finance', weight: 15, achieved: 0, approved: false, files: [], assignment: 'Pending MD approval for vendor selection', description: 'Process LOA and initiate contract formalities post vendor selection.', assignedDate: '12 Aug 2026' },
         ]
@@ -1946,8 +1946,8 @@
         id: 'design', name: 'Design', progress: 69, status: 'awaiting', color: '#46b8f0',
         desc: 'SLDs, layout drawings, structural and electrical design sign-off.',
         items: [
-          { id: 1, title: 'Site Layout & GA', assigned: 'Rahul Dey — Design', weight: 30, achieved: 30, approved: true, approvedBy: 'Rohan Ghosh (MD)', files: ['GA_Layout_v2.pdf'], assignment: 'Rahul completed GA drawings as assigned by MD on 19 Aug 2026', description: 'Prepare general arrangement drawing for the full site layout.', assignedDate: '19 Aug 2026' },
-          { id: 2, title: 'Single Line Diagrams', assigned: 'Priya Nair — Design', weight: 25, achieved: 25, approved: true, approvedBy: 'Rohan Ghosh (MD)', files: ['SLD_Complete.pdf'], assignment: 'Priya finalized all SLDs as assigned by MD on 18 Aug 2026', description: 'Finalize SLDs for inverter-to-transformer routing.', assignedDate: '18 Aug 2026' },
+          { id: 1, title: 'Site Layout & GA', assigned: 'Rahul Dey — Design', weight: 30, achieved: 30, approved: true, approvedBy: 'Rabin Roy (MD)', files: ['GA_Layout_v2.pdf'], assignment: 'Rahul completed GA drawings as assigned by MD on 19 Aug 2026', description: 'Prepare general arrangement drawing for the full site layout.', assignedDate: '19 Aug 2026' },
+          { id: 2, title: 'Single Line Diagrams', assigned: 'Priya Nair — Design', weight: 25, achieved: 25, approved: true, approvedBy: 'Rabin Roy (MD)', files: ['SLD_Complete.pdf'], assignment: 'Priya finalized all SLDs as assigned by MD on 18 Aug 2026', description: 'Finalize SLDs for inverter-to-transformer routing.', assignedDate: '18 Aug 2026' },
           { id: 3, title: 'Electrical Design Sign-off', assigned: 'Rahul Dey — Design', weight: 20, achieved: 14, approved: false, files: ['Electrical_Design_Draft.pdf'], assignment: 'Rahul submitted draft, awaiting final review from MD', description: 'Structural and electrical design review and sign-off.', assignedDate: '12 Aug 2026' },
           { id: 4, title: 'Structural Analysis Report', assigned: 'Manoj Tiwari — Others', weight: 25, achieved: 0, approved: false, files: [], assignment: 'Assigned to Manoj, not yet started', description: 'Foundation and mounting structural load analysis.', assignedDate: '12 Aug 2026' },
         ]
@@ -1956,8 +1956,8 @@
         id: 'procurement', name: 'Procurement', progress: 32, status: 'awaiting', color: '#22a06b',
         desc: 'Vendor quotations, PO issuance and material delivery tracking.',
         items: [
-          { id: 1, title: 'Vendor Shortlisting', assigned: 'Komal Verma — Procurement', weight: 30, achieved: 30, approved: true, approvedBy: 'Rohan Ghosh (MD)', files: ['Vendor_List_Approved.xlsx'], assignment: 'Komal completed vendor evaluation as assigned by MD on 20 Aug 2026', description: 'Evaluate and shortlist vendors based on quotation and quality.', assignedDate: '20 Aug 2026' },
-          { id: 2, title: 'Quotation Comparison', assigned: 'Ankit Sharma — Procurement', weight: 25, achieved: 25, approved: true, approvedBy: 'Rohan Ghosh (MD)', files: ['Quote_Comparison.xlsx'], assignment: 'Ankit prepared comparison matrix as assigned by MD', description: 'Prepare comparative quotation matrix across vendors.', assignedDate: '12 Aug 2026' },
+          { id: 1, title: 'Vendor Shortlisting', assigned: 'Komal Verma — Procurement', weight: 30, achieved: 30, approved: true, approvedBy: 'Rabin Roy (MD)', files: ['Vendor_List_Approved.xlsx'], assignment: 'Komal completed vendor evaluation as assigned by MD on 20 Aug 2026', description: 'Evaluate and shortlist vendors based on quotation and quality.', assignedDate: '20 Aug 2026' },
+          { id: 2, title: 'Quotation Comparison', assigned: 'Ankit Sharma — Procurement', weight: 25, achieved: 25, approved: true, approvedBy: 'Rabin Roy (MD)', files: ['Quote_Comparison.xlsx'], assignment: 'Ankit prepared comparison matrix as assigned by MD', description: 'Prepare comparative quotation matrix across vendors.', assignedDate: '12 Aug 2026' },
           { id: 3, title: 'PO Preparation', assigned: 'Devika Rao — Finance', weight: 25, achieved: 0, approved: false, files: [], assignment: 'Awaiting Devika to prepare purchase orders', description: 'Draft and issue purchase orders to selected vendors.', assignedDate: '12 Aug 2026' },
           { id: 4, title: 'Delivery Tracking Setup', assigned: 'Komal Verma — Procurement', weight: 20, achieved: 0, approved: false, files: [], assignment: 'Pending after PO issuance', description: 'Set up delivery schedule tracking for ordered material.', assignedDate: '12 Aug 2026' },
         ]
@@ -1966,7 +1966,7 @@
         id: 'execution', name: 'Execution', progress: 57, status: 'awaiting', color: '#ff9142',
         desc: 'Site civil, mechanical and electrical installation progress.',
         items: [
-          { id: 1, title: 'Priya Nair — Design', assigned: 'Priya Nair — Design', weight: 19, achieved: 19, approved: true, approvedBy: 'Rohan Ghosh (MD)', files: ['Mechanical_Mounting_final.pdf'], assignment: 'Priya completed mechanical mounting design as assigned by MD', description: 'Mechanical mounting structure installation at site.', assignedDate: '12 Aug 2026' },
+          { id: 1, title: 'Priya Nair — Design', assigned: 'Priya Nair — Design', weight: 19, achieved: 19, approved: true, approvedBy: 'Rabin Roy (MD)', files: ['Mechanical_Mounting_final.pdf'], assignment: 'Priya completed mechanical mounting design as assigned by MD', description: 'Mechanical mounting structure installation at site.', assignedDate: '12 Aug 2026' },
           { id: 2, title: 'Electrical Installation', assigned: 'Rahul Dey — Design', weight: 13, achieved: 13, approved: true, approvedBy: 'Rahul Dey', files: ['Electrical_Installation_final.pdf'], assignment: 'Rahul completed electrical installation as assigned by MD', description: 'Cabling, wiring and electrical panel installation.', assignedDate: '12 Aug 2026' },
           { id: 3, title: 'Testing & Punch List', assigned: 'Manoj Tiwari — Others', weight: 43, achieved: 18, approved: false, files: ['Punch_List_Draft.pdf'], assignment: 'Manoj assigned to complete testing, currently 18% done', description: 'Site testing and punch-list closure before commissioning.', assignedDate: '12 Aug 2026' },
           { id: 4, title: 'Site Safety Compliance', assigned: 'Komal Verma — Procurement', weight: 25, achieved: 7, approved: false, files: [], assignment: 'Komal monitoring site safety, 7% progress', description: 'Ongoing site safety audits and compliance monitoring.', assignedDate: '12 Aug 2026' },
@@ -2307,7 +2307,7 @@
   });
   document.getElementById('cl-approve-btn').addEventListener('click', () => {
     if(currentStageData.weightSum !== 100 || currentStageData.progress < 100){ showToast('Sheet must total 100% and all items fully achieved before approval.'); return; }
-    currentStageData.items.forEach(i => { if(!i.approved){ i.approved = true; i.approvedBy = 'Rohan Ghosh (MD)'; } });
+    currentStageData.items.forEach(i => { if(!i.approved){ i.approved = true; i.approvedBy = 'Rabin Roy (MD)'; } });
     currentStageData.status = 'done';
     renderChecklistItems();
     showToast('Stage approved — all items signed off.');
