@@ -1440,6 +1440,32 @@
     Others:      [],
   };
 
+  async function loadTeamMembersFromDB(){
+    const { data: depts, error: deptErr } = await sb.from('departments').select('name').order('name');
+    if(deptErr){ showToast('Could not load departments: ' + deptErr.message); return; }
+
+    const fresh = {};
+    (depts || []).forEach(d => { fresh[d.name] = []; });
+
+    const { data: members, error } = await sb.from('team_members')
+      .select('id, name, designation, pin_plain, status, departments(name)')
+      .order('name');
+    if(error){ showToast('Could not load team members: ' + error.message); return; }
+
+    (members || []).forEach(row => {
+      const deptName = row.departments ? row.departments.name : null;
+      if(!deptName) return;
+      if(!fresh[deptName]) fresh[deptName] = [];
+      fresh[deptName].push({
+        id: row.id, name: row.name, designation: row.designation || '—',
+        pin: row.pin_plain || '----', status: row.status
+      });
+    });
+
+    Object.keys(teamMembers).forEach(k => delete teamMembers[k]);
+    Object.assign(teamMembers, fresh);
+  }
+
   const formerMembers = []; // people removed from the active roster — kept for Settings + audit purposes
 
   const activityLog = []; // starts empty — every entry from here on is a real logged action
@@ -1643,6 +1669,9 @@
     renderProjectGrid();
     populateProjectDropdown();
     renderReportsView();
+
+    await loadTeamMembersFromDB();
+    renderTeamView();
   }
 
   function showRoleSelect(){
@@ -1995,17 +2024,23 @@
   document.getElementById('am-generate-pin').addEventListener('click', () => {
     document.getElementById('am-pin').value = generatePin();
   });
-  document.getElementById('am-add').addEventListener('click', () => {
+  document.getElementById('am-add').addEventListener('click', async () => {
     const name = document.getElementById('am-name').value.trim();
     const designation = document.getElementById('am-designation').value.trim();
     const dept = document.getElementById('am-department').value;
     const pin = document.getElementById('am-pin').value.trim();
     if(!name){ showToast('Please enter the employee\'s name.'); return; }
     if(!/^\d{4}$/.test(pin)){ showToast('PIN must be exactly 4 digits.'); return; }
-    teamMembers[dept].push({ name, designation: designation || '—', pin, status: 'ok' });
+
+    const { error } = await sb.rpc('add_team_member', {
+      p_name: name, p_designation: designation || '—', p_department: dept, p_pin: pin
+    });
+    if(error){ showToast('Could not add member: ' + error.message); return; }
+
+    await loadTeamMembersFromDB();
     renderTeamView();
     closeAddMemberModal();
-    showToast(`${name} added to ${dept}. Share PIN ${pin} with them directly.`);
+    showToast(`${name} added to ${dept} and saved. Share PIN ${pin} with them directly.`);
   });
 
   // ---------------- RESET PIN ----------------
@@ -2050,6 +2085,8 @@
     }
 
     const m = teamMembers[resetPinTarget.dept][resetPinTarget.idx];
+    const { data: ok, error } = await sb.rpc('reset_team_member_pin', { p_member_id: m.id, p_new_pin: pin });
+    if(error || !ok){ showToast('Could not reset PIN: ' + (error ? error.message : 'unknown error')); return; }
     m.pin = pin;
     m.status = 'ok';
     renderTeamView();
@@ -2070,16 +2107,20 @@
   document.getElementById('add-department-btn').addEventListener('click', openAddDepartmentModal);
   document.getElementById('ad-cancel').addEventListener('click', closeAddDepartmentModal);
   document.getElementById('ad-overlay').addEventListener('click', closeAddDepartmentModal);
-  document.getElementById('ad-add').addEventListener('click', () => {
+  document.getElementById('ad-add').addEventListener('click', async () => {
     const raw = document.getElementById('ad-name').value.trim();
     if(!raw){ showToast('Please enter a department name.'); return; }
     const name = raw.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     const exists = Object.keys(teamMembers).some(d => d.toLowerCase() === name.toLowerCase());
     if(exists){ showToast(`"${name}" already exists as a department.`); return; }
+
+    const { error } = await sb.from('departments').insert({ name });
+    if(error){ showToast('Could not create department: ' + error.message); return; }
+
     teamMembers[name] = [];
     renderTeamView();
     closeAddDepartmentModal();
-    showToast(`"${name}" department added. Go to Team Management to add members to it.`);
+    showToast(`"${name}" department added and saved.`);
     if(driveAccessToken) ensureDriveFoldersForDepartment(name);
   });
 
@@ -2099,7 +2140,12 @@
     showToast('Dashboard refreshed.');
   }
   function refreshProjectDetails(el){ spinRefresh(el); if(currentProjectId){ renderProjectDetailsView(); } else { showToast('Choose a project first.'); return; } showToast('Project details refreshed.'); }
-  function refreshTeamView(el){ spinRefresh(el); renderTeamView(); showToast('Team list refreshed.'); }
+  async function refreshTeamView(el){
+    spinRefresh(el);
+    await loadTeamMembersFromDB();
+    renderTeamView();
+    showToast('Team list refreshed.');
+  }
   function renderFormerMembers(){
     const el = document.getElementById('former-members-list');
     if(!el) return;
@@ -2398,7 +2444,7 @@
   }
   document.getElementById('dm-cancel').addEventListener('click', closeDeleteMemberModal);
   document.getElementById('dm-overlay').addEventListener('click', closeDeleteMemberModal);
-  document.getElementById('dm-confirm').addEventListener('click', () => {
+  document.getElementById('dm-confirm').addEventListener('click', async () => {
     if(!memberPendingDelete) return;
     const { dept, idx } = memberPendingDelete;
     const m = teamMembers[dept][idx];
@@ -2406,6 +2452,11 @@
     const label = `${m.name} — ${dept}`;
     const removedDate = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
     const removedTime = new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+
+    if(m.id){
+      const { error } = await sb.from('team_members').delete().eq('id', m.id);
+      if(error){ showToast('Could not remove member: ' + error.message); return; }
+    }
 
     // Only free up work that isn't finished yet — completed/approved items keep
     // their original "assigned" name exactly as-is, since that's a historical
