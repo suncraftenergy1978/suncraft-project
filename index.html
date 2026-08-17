@@ -1444,11 +1444,11 @@
   const formerMembers = []; // people removed from the active roster — kept for Settings + audit purposes
 
   const activityLog = [
-    { date:'20 Aug 2026', time:'11:45 AM', actor:'Komal Verma', dept:'Procurement', project:'NTPC Rajgarh 50MW', text:'Uploaded a file and notes for "HT cable vendor quotation".' },
-    { date:'20 Aug 2026', time:'10:12 AM', actor:'Rabin Roy (MD)', dept:'—', project:'NTPC Rajgarh 50MW', text:'Approved "Geo-tech soil report review" — status set to Green.' },
-    { date:'19 Aug 2026', time:'6:02 PM', actor:'Priya Nair', dept:'Design', project:'Adani Kutch Phase-2', text:'Added task notes for "Single line diagram — Block C".' },
-    { date:'19 Aug 2026', time:'3:20 PM', actor:'Rabin Roy (MD)', dept:'—', project:'Tata Power Rooftop — Pune', text:'Created project and auto-assigned 4 default teams.' },
-    { date:'18 Aug 2026', time:'9:40 AM', actor:'Devika Rao', dept:'Finance', project:'NTPC Rajgarh 50MW', text:'Uploaded "Q2 Cost Variance" report.' },
+    { date:'16 Aug 2026', time:'11:45 AM', actor:'Komal Verma', dept:'Procurement', project:'NTPC Rajgarh 50MW', text:'Uploaded a file and notes for "HT cable vendor quotation".' },
+    { date:'16 Aug 2026', time:'10:12 AM', actor:'Rabin Roy (MD)', dept:'—', project:'NTPC Rajgarh 50MW', text:'Approved "Geo-tech soil report review" — status set to Green.' },
+    { date:'15 Aug 2026', time:'6:02 PM', actor:'Priya Nair', dept:'Design', project:'Adani Kutch Phase-2', text:'Added task notes for "Single line diagram — Block C".' },
+    { date:'15 Aug 2026', time:'3:20 PM', actor:'Rabin Roy (MD)', dept:'—', project:'Tata Power Rooftop — Pune', text:'Created project and auto-assigned 4 default teams.' },
+    { date:'14 Aug 2026', time:'9:40 AM', actor:'Devika Rao', dept:'Finance', project:'NTPC Rajgarh 50MW', text:'Uploaded "Q2 Cost Variance" report.' },
   ];
 
   // ---------------- SPLASH SCREEN ----------------
@@ -2138,15 +2138,35 @@
   function refreshTeamDashboard(el){ spinRefresh(el); renderTeamDashboard(); showToast('Assignment Dashboard refreshed.'); }
 
   // ---------------- REPORTS CORNER ----------------
+  function parseLogTimestamp(entry){
+    const months = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+    const dp = entry.date.split(' ');
+    const day = parseInt(dp[0], 10), month = months[dp[1]], year = parseInt(dp[2], 10);
+    const tp = entry.time.trim().split(' ');
+    let [hh, mm] = tp[0].split(':').map(Number);
+    const ampm = tp[1] ? tp[1].toUpperCase() : null;
+    if(ampm === 'PM' && hh !== 12) hh += 12;
+    if(ampm === 'AM' && hh === 12) hh = 0;
+    return new Date(year, month, day, hh, mm || 0).getTime();
+  }
+
   function renderReportsView(){
     const sel = document.getElementById('report-project-select');
     sel.innerHTML = projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
 
+    // Sort newest-first by real timestamp, not array/insertion order —
+    // otherwise older seed entries and freshly-logged real ones can display
+    // out of chronological order.
+    const sorted = activityLog.slice().sort((a,b) => parseLogTimestamp(b) - parseLogTimestamp(a));
     const grouped = {};
-    activityLog.forEach(a => { (grouped[a.date] = grouped[a.date] || []).push(a); });
+    const dateOrder = [];
+    sorted.forEach(a => {
+      if(!grouped[a.date]){ grouped[a.date] = []; dateOrder.push(a.date); }
+      grouped[a.date].push(a);
+    });
 
     const list = document.getElementById('activity-log-list');
-    list.innerHTML = Object.keys(grouped).map(date => `
+    list.innerHTML = dateOrder.map(date => `
       <div class="activity-date-group">
         <div class="activity-date-label">${date}</div>
         ${grouped[date].map((a,i) => `
@@ -2179,7 +2199,8 @@
     doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(100,100,100);
     doc.text(`Generated ${pdfDateStamp()} · MD-only report`, 10, y); y += 8;
 
-    const rows = activityLog.map(a => [a.date, a.time, a.actor, a.dept !== '—' ? a.dept : '', a.project, a.text]);
+    const rows = activityLog.slice().sort((a,b) => parseLogTimestamp(b) - parseLogTimestamp(a))
+      .map(a => [a.date, a.time, a.actor, a.dept !== '—' ? a.dept : '', a.project, a.text]);
     doc.autoTable({
       startY: y,
       head: [['Date','Time','Actor','Dept','Project','Activity']],
