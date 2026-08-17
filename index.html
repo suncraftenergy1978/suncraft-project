@@ -485,8 +485,14 @@
   }
   .project-card:hover{ transform:translateY(-3px); border-color:var(--sky); box-shadow:0 14px 30px -14px rgba(70,184,240,0.35); }
   .project-card .grid-tex{ position:absolute; inset:0; opacity:.05; pointer-events:none; }
-  .project-card .pname{ font-family:var(--font-display); font-size:16.5px; font-weight:600; margin-bottom:2px; }
+  .project-card .pname{ font-family:var(--font-display); font-size:16.5px; font-weight:600; margin-bottom:2px; padding-right:26px; }
   .project-card .pclient{ font-size:12px; color:var(--text-lo); margin-bottom:16px; }
+  .project-card-delete{
+    position:absolute; top:16px; right:16px; width:24px; height:24px; border-radius:7px;
+    background:rgba(255,83,100,0.1); border:1px solid rgba(255,83,100,0.25); color:#ff97a2;
+    font-size:14px; line-height:1; display:flex; align-items:center; justify-content:center; z-index:2;
+  }
+  .project-card-delete:hover{ background:rgba(255,83,100,0.22); }
   .pill-row{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
   .pill{ display:flex; align-items:center; gap:6px; font-size:11.5px; font-weight:600; padding:5px 10px; border-radius:999px; font-family:var(--font-mono); }
   .pill-dot{ width:7px; height:7px; border-radius:50%; }
@@ -1286,6 +1292,19 @@
   </div>
 </div>
 
+<!-- ================= DELETE PROJECT MINI-MODAL ================= -->
+<div class="mini-modal-overlay" id="dp-overlay"></div>
+<div class="mini-modal" id="dp-modal">
+  <h3 style="font-family:var(--font-display); font-size:16px; margin-bottom:6px;">Delete "<span id="dp-project-name"></span>"?</h3>
+  <p style="font-size:12.5px; color:var(--text-lo); margin-bottom:18px; line-height:1.5;">
+    This removes the project from your dashboard. Its Google Drive folder is <strong>not deleted</strong> — it's renamed with an "(Archived)" tag so nothing is ever silently lost.
+  </p>
+  <div class="modal-actions">
+    <button class="btn-cancel" id="dp-cancel" style="flex:1;">Cancel</button>
+    <button id="dp-confirm" style="flex:1; background:linear-gradient(180deg,var(--red),#c73b4a); border:none; color:#fff; font-weight:700; border-radius:9px; font-size:13px; padding:11px;">Delete project</button>
+  </div>
+</div>
+
 <!-- ================= TASK DETAIL DRAWER ================= -->
 <div class="drawer" id="task-drawer">
   <div class="drawer-head">
@@ -1701,6 +1720,7 @@
     const grid = document.getElementById('project-grid');
     grid.innerHTML = projects.map(p => `
       <div class="project-card" onclick="openProject('${p.id}')">
+        <button class="project-card-delete" onclick="event.stopPropagation(); openDeleteProjectModal('${p.id}');" title="Delete project">&times;</button>
         <div class="pname">${p.name}</div>
         <div class="pclient">${p.client}</div>
         <div class="pill-row">
@@ -2084,6 +2104,58 @@
     closeNewProjectModal();
     showToast(`"${name}" created. Note: project list isn't database-backed yet — this stays only in this browser session.`);
     if(driveAccessToken) ensureDriveFoldersForProject(name);
+  });
+
+  // ---------------- DELETE PROJECT (archives the Drive folder, never deletes it) ----------------
+  let projectPendingDelete = null;
+  function openDeleteProjectModal(projectId){
+    const p = projects.find(x => x.id === projectId);
+    if(!p) return;
+    projectPendingDelete = projectId;
+    document.getElementById('dp-project-name').textContent = p.name;
+    document.getElementById('dp-overlay').classList.add('show');
+    document.getElementById('dp-modal').classList.add('show');
+  }
+  function closeDeleteProjectModal(){
+    document.getElementById('dp-overlay').classList.remove('show');
+    document.getElementById('dp-modal').classList.remove('show');
+    projectPendingDelete = null;
+  }
+  document.getElementById('dp-cancel').addEventListener('click', closeDeleteProjectModal);
+  document.getElementById('dp-overlay').addEventListener('click', closeDeleteProjectModal);
+
+  async function archiveDriveFolderForProject(projectName){
+    if(!driveAccessToken) return;
+    try{
+      const rootId = await ensureDriveRoot();
+      const folderId = await findOrCreateDriveFolder(projectName, rootId);
+      await driveFetch(`files/${folderId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name: `${projectName} (Archived)` })
+      });
+    } catch(e){ /* Drive rename is best-effort — the project is still removed from the dashboard either way */ }
+  }
+
+  document.getElementById('dp-confirm').addEventListener('click', async () => {
+    const id = projectPendingDelete;
+    const p = projects.find(x => x.id === id);
+    if(!p) return;
+
+    projects.splice(projects.findIndex(x => x.id === id), 1);
+    delete stagesData[id];
+    if(currentProjectId === id) goDashboard();
+    renderProjectGrid();
+    populateProjectDropdown();
+    renderReportsView();
+    closeDeleteProjectModal();
+    activityLog.unshift({
+      date: new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }),
+      time: new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }),
+      actor: 'Rabin Roy (MD)', dept: '—', project: p.name,
+      text: 'Removed project from dashboard. Drive folder archived, not deleted.'
+    });
+    showToast(`"${p.name}" removed from dashboard. Drive folder kept, marked (Archived).`);
+    archiveDriveFolderForProject(p.name);
   });
 
   function closeModal(){ overlay.classList.remove('show'); assignModal.classList.remove('show'); }
