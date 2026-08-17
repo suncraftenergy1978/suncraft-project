@@ -1476,7 +1476,8 @@
       showToast('Google Drive folders synced.');
     } catch(e){
       document.getElementById('drive-storage-label').textContent = 'Sync failed';
-      showToast('Could not sync Google Drive — try signing in again.');
+      console.error('Drive sync error:', e);
+      showToast('Drive sync error: ' + e.message);
     }
   }
 
