@@ -1081,6 +1081,10 @@
           <div class="settings-row"><span class="k">Weekly summary</span><div class="toggle" onclick="this.classList.toggle('on')"><div class="knob"></div></div></div>
         </div>
       </div>
+
+      <div class="section-head" style="margin-top:22px;"><h2 style="font-size:16px;">Former Team Members</h2></div>
+      <p style="font-size:12px; color:var(--text-lo); margin-bottom:14px;">People removed from the active roster. Their completed work stays attributed to them in every past report — this list is just a record of who left, and when.</p>
+      <div id="former-members-list"></div>
     </div>
 
     <!-- REPORTS CORNER -->
@@ -1314,7 +1318,7 @@
 <div class="mini-modal" id="dm-modal">
   <h3 style="font-family:var(--font-display); font-size:16px; margin-bottom:6px;">Remove "<span id="dm-member-name"></span>"?</h3>
   <p style="font-size:12.5px; color:var(--text-lo); margin-bottom:18px; line-height:1.5;">
-    Their PIN stops working immediately. Any checklist items currently assigned to them will fall back to <strong>Unassigned</strong> so you can hand them to someone else — nothing about the work itself is deleted.
+    Their PIN stops working immediately. Any <strong>unfinished</strong> work falls back to Unassigned so you can hand it to someone else. Anything they already completed keeps their name on record permanently — nothing about past reports changes.
   </p>
   <div class="modal-actions">
     <button class="btn-cancel" id="dm-cancel" style="flex:1;">Cancel</button>
@@ -1405,6 +1409,8 @@
     Finance:     [ {name:'Devika Rao', designation:'Finance Executive', pin:'3947', status:'ok'}, {name:'Sneha Iyer', designation:'Accounts Officer', pin:'8815', status:'ok'} ],
     Others:      [ {name:'Manoj Tiwari', designation:'Site Supervisor', pin:'2266', status:'ok'}, {name:'Farhan Sheikh', designation:'Site Coordinator', pin:'5503', status:'ok'} ],
   };
+
+  const formerMembers = []; // people removed from the active roster — kept for Settings + audit purposes
 
   const activityLog = [
     { date:'20 Aug 2026', time:'11:45 AM', actor:'Komal Verma', dept:'Procurement', project:'NTPC Rajgarh 50MW', text:'Uploaded a file and notes for "HT cable vendor quotation".' },
@@ -1606,6 +1612,7 @@
     populateProjectDropdown();
     renderTeamView();
     renderReportsView();
+    renderFormerMembers();
     const emailEl = document.getElementById('settings-connected-email');
     if(emailEl) emailEl.textContent = connectedEmail || 'Connected';
   }
@@ -2039,7 +2046,33 @@
   function refreshDashboard(el){ spinRefresh(el); animateCounters(); renderProjectGrid(); if(driveAccessToken) fetchDriveStorageQuota(); showToast('Dashboard refreshed.'); }
   function refreshProjectDetails(el){ spinRefresh(el); if(currentProjectId){ renderProjectDetailsView(); } else { showToast('Choose a project first.'); return; } showToast('Project details refreshed.'); }
   function refreshTeamView(el){ spinRefresh(el); renderTeamView(); showToast('Team list refreshed.'); }
-  function refreshSettings(el){ spinRefresh(el); showToast('Settings refreshed.'); }
+  function renderFormerMembers(){
+    const el = document.getElementById('former-members-list');
+    if(!el) return;
+    if(formerMembers.length === 0){
+      el.innerHTML = '<p style="font-size:12.5px; color:var(--text-lo);">No one has left yet.</p>';
+      return;
+    }
+    el.innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Department</th><th>Designation</th><th>Left On</th></tr></thead>
+          <tbody>
+            ${formerMembers.slice().reverse().map(f => `
+              <tr>
+                <td>${escapeHtml(f.name)}</td>
+                <td><span class="dept-badge">${escapeHtml(f.department)}</span></td>
+                <td class="mono-cell">${escapeHtml(f.designation)}</td>
+                <td class="mono-cell">${f.removedDate}, ${f.removedTime}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function refreshSettings(el){ spinRefresh(el); renderFormerMembers(); showToast('Settings refreshed.'); }
   function refreshReports(el){ spinRefresh(el); renderReportsView(); showToast('Reports refreshed.'); }
   function refreshTeamDashboard(el){ spinRefresh(el); renderTeamDashboard(); showToast('Assignment Dashboard refreshed.'); }
 
@@ -2270,28 +2303,33 @@
     const m = teamMembers[dept][idx];
     if(!m) return;
     const label = `${m.name} — ${dept}`;
+    const removedDate = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+    const removedTime = new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
 
-    // Reassign anything currently pointing at them, across every project/stage,
-    // so nothing is left silently referencing someone who no longer exists.
+    // Only free up work that isn't finished yet — completed/approved items keep
+    // their original "assigned" name exactly as-is, since that's a historical
+    // record of who actually did the work, not a live roster reference.
     let reassignedCount = 0;
     Object.values(stagesData).forEach(stages => {
       stages.forEach(stage => {
         stage.items.forEach(item => {
-          if(item.assigned === label){ item.assigned = 'Unassigned'; reassignedCount++; }
+          const isFinished = item.approved || item.achieved >= item.weight;
+          if(item.assigned === label && !isFinished){ item.assigned = 'Unassigned'; reassignedCount++; }
         });
       });
     });
 
     teamMembers[dept].splice(idx, 1);
+    formerMembers.push({ name: m.name, department: dept, designation: m.designation || '—', removedDate, removedTime });
     renderTeamView();
+    renderFormerMembers();
     closeDeleteMemberModal();
     activityLog.unshift({
-      date: new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }),
-      time: new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }),
+      date: removedDate, time: removedTime,
       actor: 'Rabin Roy (MD)', dept, project: '—',
-      text: `Removed team member ${label}.${reassignedCount ? ' ' + reassignedCount + ' checklist item(s) set to Unassigned.' : ''}`
+      text: `Removed team member ${label} (left the organization).${reassignedCount ? ' ' + reassignedCount + ' unfinished item(s) set to Unassigned — completed work keeps their name on record.' : ' No unfinished work to reassign.'}`
     });
-    showToast(`${m.name} removed.${reassignedCount ? ' ' + reassignedCount + ' item(s) now Unassigned.' : ''}`);
+    showToast(`${m.name} removed from the active roster. Their completed work still shows their name.`);
   });
 
   function closeModal(){ overlay.classList.remove('show'); assignModal.classList.remove('show'); }
