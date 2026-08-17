@@ -1381,14 +1381,45 @@
 
 <script>
   // ---------------- MOCK DATA ----------------
-  const projects = [
-    { id:'p1', name:'NTPC Rajgarh 50MW', client:'NTPC Renewable Energy', red:3, yellow:2, green:5, updated:'2h ago' },
-    { id:'p2', name:'Adani Kutch Phase-2', client:'Adani Green Energy', red:1, yellow:1, green:6, updated:'5h ago' },
-    { id:'p3', name:'Tata Power Rooftop — Pune', client:'Tata Power Solar', red:2, yellow:0, green:1, updated:'1d ago' },
-    { id:'p4', name:'ReNew C&I Bhilwara', client:'ReNew Power', red:1, yellow:1, green:1, updated:'3d ago' },
-    { id:'p5', name:'Azure Barmer 100MW', client:'Azure Power', red:1, yellow:1, green:1, updated:'6d ago' },
-    { id:'p6', name:'O2 Power Kutch Wind-Solar', client:'O2 Power', red:1, yellow:0, green:0, updated:'2w ago' },
+  let projects = []; // populated for real from Supabase on login — see loadProjectsFromDB()
+  const SEED_PROJECTS = [
+    { name:'NTPC Rajgarh 50MW', client:'NTPC Renewable Energy', red:3, yellow:2, green:5 },
+    { name:'Adani Kutch Phase-2', client:'Adani Green Energy', red:1, yellow:1, green:6 },
+    { name:'Tata Power Rooftop — Pune', client:'Tata Power Solar', red:2, yellow:0, green:1 },
+    { name:'ReNew C&I Bhilwara', client:'ReNew Power', red:1, yellow:1, green:1 },
+    { name:'Azure Barmer 100MW', client:'Azure Power', red:1, yellow:1, green:1 },
+    { name:'O2 Power Kutch Wind-Solar', client:'O2 Power', red:1, yellow:0, green:0 },
   ];
+
+  function relativeTimeFrom(isoString){
+    const then = new Date(isoString).getTime();
+    const diffMin = Math.max(0, Math.round((Date.now() - then) / 60000));
+    if(diffMin < 1) return 'just now';
+    if(diffMin < 60) return diffMin + 'm ago';
+    const diffH = Math.round(diffMin / 60);
+    if(diffH < 24) return diffH + 'h ago';
+    const diffD = Math.round(diffH / 24);
+    if(diffD < 7) return diffD + 'd ago';
+    return Math.round(diffD / 7) + 'w ago';
+  }
+
+  async function loadProjectsFromDB(){
+    let { data, error } = await sb.from('projects').select('*').order('created_at');
+    if(error){ showToast('Could not load projects: ' + error.message); return; }
+
+    if(data.length === 0){
+      const { error: seedErr } = await sb.from('projects').insert(SEED_PROJECTS);
+      if(seedErr){ showToast('Could not seed projects: ' + seedErr.message); return; }
+      ({ data, error } = await sb.from('projects').select('*').order('created_at'));
+      if(error){ showToast('Could not reload projects: ' + error.message); return; }
+    }
+
+    projects = data.map(row => ({
+      id: row.id, name: row.name, client: row.client || '—',
+      red: row.red, yellow: row.yellow, green: row.green,
+      updated: relativeTimeFrom(row.updated_at)
+    }));
+  }
 
   const tasks = [
     { id:'TASK-0114', name:'Module datasheet — Longi 550W', dept:'Procurement', assignee:'Ankit Sharma', details:'Collect and upload latest module datasheet with efficiency & warranty terms from Longi for board review.', due:'18 Aug 2026', uploaded:'—', status:'red', notes:'', files: [''] },
@@ -1604,16 +1635,21 @@
   const appView = document.getElementById('app-view');
   let mdPinFailCount = 0;
 
-  function enterMDConsole(connectedEmail){
+  async function enterMDConsole(connectedEmail){
     loginView.style.display = 'none';
     appView.style.display = 'block';
-    renderProjectGrid();
+    renderProjectGrid(); // show something immediately, then swap in real data
     populateProjectDropdown();
     renderTeamView();
     renderReportsView();
     renderFormerMembers();
     const emailEl = document.getElementById('settings-connected-email');
     if(emailEl) emailEl.textContent = connectedEmail || 'Connected';
+
+    await loadProjectsFromDB();
+    renderProjectGrid();
+    populateProjectDropdown();
+    renderReportsView();
   }
 
   function showRoleSelect(){
@@ -2061,7 +2097,14 @@
     void el.offsetWidth;
     el.classList.add('spin');
   }
-  function refreshDashboard(el){ spinRefresh(el); renderProjectGrid(); if(driveAccessToken) fetchDriveStorageQuota(); showToast('Dashboard refreshed.'); }
+  async function refreshDashboard(el){
+    spinRefresh(el);
+    await loadProjectsFromDB();
+    renderProjectGrid();
+    populateProjectDropdown();
+    if(driveAccessToken) fetchDriveStorageQuota();
+    showToast('Dashboard refreshed.');
+  }
   function refreshProjectDetails(el){ spinRefresh(el); if(currentProjectId){ renderProjectDetailsView(); } else { showToast('Choose a project first.'); return; } showToast('Project details refreshed.'); }
   function refreshTeamView(el){ spinRefresh(el); renderTeamView(); showToast('Team list refreshed.'); }
   function renderFormerMembers(){
@@ -2237,12 +2280,15 @@
     const name = document.getElementById('np-name').value.trim();
     const client = document.getElementById('np-client').value.trim();
     if(!name){ showToast('Please enter a project name.'); return; }
-    const id = 'p' + (projects.length + 1) + '_' + Date.now();
-    projects.push({ id, name, client: client || '—', red:0, yellow:0, green:0, updated:'just now' });
+
+    const { data, error } = await sb.from('projects').insert({ name, client: client || null, red:0, yellow:0, green:0 }).select().single();
+    if(error){ showToast('Could not create project: ' + error.message); return; }
+
+    projects.push({ id: data.id, name: data.name, client: data.client || '—', red:0, yellow:0, green:0, updated:'just now' });
     renderProjectGrid();
     populateProjectDropdown();
     closeNewProjectModal();
-    showToast(`"${name}" created. Note: project list isn't database-backed yet — this stays only in this browser session.`);
+    showToast(`"${name}" created and saved.`);
     if(driveAccessToken) ensureDriveFoldersForProject(name);
   });
 
@@ -2281,6 +2327,9 @@
     const p = projects.find(x => x.id === id);
     if(!p) return;
 
+    const { error } = await sb.from('projects').delete().eq('id', id);
+    if(error){ showToast('Could not delete project: ' + error.message); return; }
+
     projects.splice(projects.findIndex(x => x.id === id), 1);
     delete stagesData[id];
     if(currentProjectId === id) goDashboard();
@@ -2292,9 +2341,9 @@
       date: new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }),
       time: new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' }),
       actor: 'Rabin Roy (MD)', dept: '—', project: p.name,
-      text: 'Removed project from dashboard. Drive folder archived, not deleted.'
+      text: 'Removed project from dashboard permanently. Drive folder archived, not deleted.'
     });
-    showToast(`"${p.name}" removed from dashboard. Drive folder kept, marked (Archived).`);
+    showToast(`"${p.name}" deleted. Drive folder kept, marked (Archived).`);
     archiveDriveFolderForProject(p.name);
   });
 
