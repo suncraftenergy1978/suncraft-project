@@ -2835,8 +2835,21 @@
       patch.achieved = item.achieved;
     }
     renderChecklistItems();
-    const { error } = await sb.from('checklist_items').update(patch).eq('id', item.id);
-    if(error){ console.error('checklist_items update error:', error); showToast('Could not save change: ' + error.message); }
+    const { data: updatedRow, error } = await sb.from('checklist_items').update(patch).eq('id', item.id).select().single();
+    if(error){
+      console.error('checklist_items update error:', error);
+      showToast('Could not save change: ' + error.message);
+    }
+    if(field === 'assigned'){
+      showDebugBanner(
+        `DEBUG — assignment save\n` +
+        `Selected label: "${el.value}"\n` +
+        `Resolved member id: ${item.assignedMemberId}\n` +
+        `Sent to DB: ${JSON.stringify(patch)}\n` +
+        `DB error: ${error ? JSON.stringify(error) : 'none'}\n` +
+        `Row after save (from DB): assigned_member_id = ${updatedRow ? updatedRow.assigned_member_id : 'N/A — see error above'}`
+      );
+    }
   });
 
   document.getElementById('cl-items').addEventListener('click', async (e) => {
@@ -3112,6 +3125,16 @@
       .order('created_at', { ascending: false });
     if(error){ console.error('team tasks load error:', error); showToast('Could not load your tasks: ' + error.message); return; }
 
+    if((rows || []).length === 0){
+      const { data: { session } } = await sb.auth.getSession();
+      const claimId = session && session.user && session.user.app_metadata ? session.user.app_metadata.team_member_id : null;
+      showDebugBanner(
+        `DEBUG — 0 rows returned for assigned_member_id = ${currentTeamMember.id}\n` +
+        `Session's team_member_id claim = ${claimId}\n` +
+        `Claim matches expected id? ${claimId === currentTeamMember.id}`
+      );
+    }
+
     currentTeamTasks = (rows || []).filter(r => r.stages && r.stages.projects).map(r => ({
       projectId: r.stages.project_id,
       projectName: r.stages.projects.name,
@@ -3269,6 +3292,20 @@
     toast.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(()=> toast.classList.remove('show'), 2600);
+  }
+
+  // Temporary — a debug banner that stays on screen (unlike a toast) so it
+  // can be screenshotted without needing DevTools. Remove once the
+  // assignment-visibility issue is confirmed fixed.
+  function showDebugBanner(text){
+    let el = document.getElementById('debug-banner');
+    if(!el){
+      el = document.createElement('div');
+      el.id = 'debug-banner';
+      el.style.cssText = 'position:fixed; bottom:16px; left:16px; right:16px; z-index:9999; background:#1a0f0f; border:2px solid #ff5364; color:#ffd7db; padding:14px 18px; border-radius:10px; font-family:monospace; font-size:12px; white-space:pre-wrap; max-height:40vh; overflow:auto;';
+      document.body.appendChild(el);
+    }
+    el.textContent = text;
   }
 </script>
 </body>
