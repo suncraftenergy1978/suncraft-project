@@ -1451,7 +1451,7 @@
     const { data: members, error } = await sb.from('team_members')
       .select('id, name, designation, pin_plain, status, departments(name)')
       .order('name');
-    if(error){ showToast('Could not load team members: ' + error.message); return; }
+    if(error){ console.error('team_members load error:', error); showToast('Could not load team members: ' + error.message); return; }
 
     (members || []).forEach(row => {
       const deptName = row.departments ? row.departments.name : null;
@@ -2614,12 +2614,12 @@
     if(!forceReload && stagesData[projectId]) return stagesData[projectId];
 
     let { data: stageRows, error } = await sb.from('stages').select('*').eq('project_id', projectId);
-    if(error){ showToast('Could not load stages: ' + error.message); return []; }
+    if(error){ console.error('stages load error:', error); showToast('Could not load stages: ' + error.message); return []; }
 
     if(!stageRows || stageRows.length === 0){
       const toInsert = STAGE_DEFS.map(sd => ({ project_id: projectId, key: sd.key, name: sd.name, description: sd.desc }));
       const { data: inserted, error: insErr } = await sb.from('stages').insert(toInsert).select();
-      if(insErr){ showToast('Could not create stages: ' + insErr.message); return []; }
+      if(insErr){ console.error('stages insert error:', insErr); showToast('Could not create stages: ' + insErr.message); return []; }
       stageRows = inserted;
     }
 
@@ -2628,7 +2628,7 @@
       .select('*, team_members(name, departments(name))')
       .in('stage_id', stageIds)
       .order('created_at');
-    if(itemErr){ showToast('Could not load checklist items: ' + itemErr.message); return []; }
+    if(itemErr){ console.error('checklist_items load error:', itemErr); showToast('Could not load checklist items: ' + itemErr.message); return []; }
 
     let filesByItem = {};
     const itemIds = (itemRows || []).map(it => it.id);
@@ -2836,7 +2836,7 @@
     }
     renderChecklistItems();
     const { error } = await sb.from('checklist_items').update(patch).eq('id', item.id);
-    if(error) showToast('Could not save change: ' + error.message);
+    if(error){ console.error('checklist_items update error:', error); showToast('Could not save change: ' + error.message); }
   });
 
   document.getElementById('cl-items').addEventListener('click', async (e) => {
@@ -2953,7 +2953,7 @@
       assigned_member_id: memberId, weight, achieved: 0,
       assignment_status: `Assigned to ${assignee} by MD`
     }).select().single();
-    if(error){ showToast('Could not add item: ' + error.message); return; }
+    if(error){ console.error('checklist_items insert error:', error); showToast('Could not add item: ' + error.message); return; }
 
     const todayStr = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
     currentStageData.items.push({
@@ -3110,7 +3110,7 @@
       .select('*, stages(name, project_id, projects(name))')
       .eq('assigned_member_id', currentTeamMember.id)
       .order('created_at', { ascending: false });
-    if(error){ showToast('Could not load your tasks: ' + error.message); return; }
+    if(error){ console.error('team tasks load error:', error); showToast('Could not load your tasks: ' + error.message); return; }
 
     currentTeamTasks = (rows || []).filter(r => r.stages && r.stages.projects).map(r => ({
       projectId: r.stages.project_id,
