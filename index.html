@@ -2856,6 +2856,7 @@
     const closeBtn = e.target.closest('.item-close');
     if(closeBtn && currentStageData){
       if(currentStageData.items.length <= 1){ showToast('A checklist needs at least one item.'); return; }
+      if(!window.confirm('Remove this checklist item permanently? This cannot be undone.')){ return; }
       const id = closeBtn.getAttribute('data-id');
       const { error } = await sb.from('checklist_items').delete().eq('id', id);
       if(error){ showToast('Could not remove item: ' + error.message); return; }
