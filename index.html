@@ -2633,8 +2633,8 @@
     let filesByItem = {};
     const itemIds = (itemRows || []).map(it => it.id);
     if(itemIds.length){
-      const { data: fileRows } = await sb.from('checklist_item_files').select('checklist_item_id, file_name').in('checklist_item_id', itemIds);
-      (fileRows || []).forEach(f => { (filesByItem[f.checklist_item_id] = filesByItem[f.checklist_item_id] || []).push(f.file_name); });
+      const { data: fileRows } = await sb.from('checklist_item_files').select('checklist_item_id, file_name, storage_path').in('checklist_item_id', itemIds);
+      (fileRows || []).forEach(f => { (filesByItem[f.checklist_item_id] = filesByItem[f.checklist_item_id] || []).push({ name: f.file_name, path: f.storage_path }); });
     }
 
     const stages = STAGE_DEFS.map(sd => {
@@ -2760,8 +2760,8 @@
         </div>
         ${(item.files && item.files.length) ? item.files.map(f => `
           <div class="item-file">
-            <span style="flex:1; overflow:hidden; text-overflow:ellipsis;">📎 ${escapeHtml(f)}</span>
-            <button class="file-view-btn" data-id="${item.id}" data-filename="${escapeHtml(f)}" title="View file">👁</button>
+            <span style="flex:1; overflow:hidden; text-overflow:ellipsis;">📎 ${escapeHtml(f.name)}</span>
+            <button class="file-view-btn" data-id="${item.id}" data-filename="${escapeHtml(f.name)}" data-path="${escapeHtml(f.path || '')}" title="View file">👁</button>
           </div>
         `).join('') : '<div class="item-file" style="color:var(--text-lo);">📎 No attachments yet</div>'}
       </div>
@@ -2866,7 +2866,7 @@
     }
     const viewBtn = e.target.closest('.file-view-btn');
     if(viewBtn){
-      openFilePreview(viewBtn.getAttribute('data-id'), viewBtn.getAttribute('data-filename'));
+      openFilePreview(viewBtn.getAttribute('data-id'), viewBtn.getAttribute('data-filename'), viewBtn.getAttribute('data-path'));
       return;
     }
     const rescheduleBtn = e.target.closest('.reschedule-btn');
@@ -2886,8 +2886,10 @@
     return '📎';
   }
 
-  function openFilePreview(itemId, filename){
+  let currentPreviewPath = null;
+  function openFilePreview(itemId, filename, storagePath){
     const item = currentStageData.items.find(i => String(i.id) === String(itemId));
+    currentPreviewPath = storagePath || null;
     document.getElementById('fp-filename').textContent = filename;
     document.getElementById('fp-icon').textContent = fileIconFor(filename);
     document.getElementById('fp-uploader').textContent = item ? item.assigned : '—';
@@ -2902,8 +2904,17 @@
   document.getElementById('fp-close').addEventListener('click', closeFilePreview);
   document.getElementById('fp-close-btn').addEventListener('click', closeFilePreview);
   document.getElementById('file-preview-overlay').addEventListener('click', closeFilePreview);
-  document.getElementById('fp-download-btn').addEventListener('click', () => {
-    showToast('Downloading ' + document.getElementById('fp-filename').textContent + '…');
+  document.getElementById('fp-download-btn').addEventListener('click', async () => {
+    const filename = document.getElementById('fp-filename').textContent;
+    if(!currentPreviewPath){ showToast('This file has no stored content (uploaded before real file storage was wired up).'); return; }
+    showToast('Downloading ' + filename + '…');
+    const { data, error } = await sb.storage.from('checklist-files').download(currentPreviewPath);
+    if(error){ showToast('Could not download: ' + error.message); return; }
+    const url = URL.createObjectURL(data);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
   });
 
   // ---------------- RESCHEDULE ITEM ----------------
@@ -3197,8 +3208,28 @@
       wrap.innerHTML = '<div class="item-file" style="color:var(--text-lo);">📎 No attachments yet</div>';
       return;
     }
-    wrap.innerHTML = item.files.map(f => `<div class="item-file"><span>📎 ${escapeHtml(f)}</span></div>`).join('');
+    wrap.innerHTML = item.files.map(f => `
+      <div class="item-file">
+        <span style="flex:1; overflow:hidden; text-overflow:ellipsis;">📎 ${escapeHtml(f.name)}</span>
+        <button class="file-view-btn tc-file-download" data-name="${escapeHtml(f.name)}" data-path="${escapeHtml(f.path || '')}" title="Download">⬇</button>
+      </div>
+    `).join('');
   }
+  document.getElementById('tc-d-files').addEventListener('click', async (e) => {
+    const btn = e.target.closest('.tc-file-download');
+    if(!btn) return;
+    const path = btn.getAttribute('data-path');
+    const name = btn.getAttribute('data-name');
+    if(!path){ showToast('This file has no stored content (uploaded before real file storage was wired up).'); return; }
+    showToast('Downloading ' + name + '…');
+    const { data, error } = await sb.storage.from('checklist-files').download(path);
+    if(error){ showToast('Could not download: ' + error.message); return; }
+    const url = URL.createObjectURL(data);
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  });
 
   async function openTeamTaskDetail(idx){
     currentTeamDetailIdx = idx;
@@ -3224,8 +3255,8 @@
     document.getElementById('tc-detail-overlay').classList.add('show');
     document.getElementById('tc-detail-modal').classList.add('show');
 
-    const { data: fileRows } = await sb.from('checklist_item_files').select('file_name').eq('checklist_item_id', item.id);
-    item.files = (fileRows || []).map(f => f.file_name);
+    const { data: fileRows } = await sb.from('checklist_item_files').select('file_name, storage_path').eq('checklist_item_id', item.id);
+    item.files = (fileRows || []).map(f => ({ name: f.file_name, path: f.storage_path }));
     if(currentTeamDetailIdx === idx) renderTcFileList(item);
   }
 
@@ -3255,16 +3286,21 @@
     const t = currentTeamTasks[currentTeamDetailIdx];
     if(!t) return;
 
+    showToast('Uploading ' + file.name + '…');
+    const storagePath = `${t.item.id}/${Date.now()}_${file.name}`;
+    const { error: uploadErr } = await sb.storage.from('checklist-files').upload(storagePath, file);
+    if(uploadErr){ showToast('Could not upload file: ' + uploadErr.message); return; }
+
     const { error } = await sb.from('checklist_item_files').insert({
-      checklist_item_id: t.item.id, file_name: file.name, uploaded_by: currentTeamMember.id
+      checklist_item_id: t.item.id, file_name: file.name, uploaded_by: currentTeamMember.id, storage_path: storagePath
     });
     if(error){ showToast('Could not attach file: ' + error.message); return; }
 
     if(!t.item.files) t.item.files = [];
-    t.item.files.push(file.name);
+    t.item.files.push({ name: file.name, path: storagePath });
     e.target.value = ''; // clear so the same file can be re-selected later if needed
     renderTcFileList(t.item);
-    showToast('File attached: ' + file.name);
+    showToast('File uploaded and attached: ' + file.name);
   });
 
   document.getElementById('tc-d-send').addEventListener('click', async () => {
